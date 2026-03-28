@@ -1,4 +1,6 @@
 import { NavLink as RouterNavLink } from 'react-router-dom';
+import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
 
 const navItems = [
   { to: '/', label: 'Dashboard' },
@@ -7,10 +9,12 @@ const navItems = [
 ];
 
 export function AppNav() {
+  const { signOut } = useAuth();
+
   return (
     <nav className="border-b">
       <div className="max-w-5xl mx-auto px-4 flex items-center h-12 gap-6">
-        <span className="text-sm font-medium text-foreground mr-4">ECFI</span>
+        <span className="text-sm font-medium text-foreground mr-4">Cash Clarity</span>
         {navItems.map(item => (
           <RouterNavLink
             key={item.to}
@@ -23,6 +27,11 @@ export function AppNav() {
             {item.label}
           </RouterNavLink>
         ))}
+        <div className="ml-auto">
+          <Button variant="ghost" size="sm" onClick={signOut} className="text-sm text-muted-foreground">
+            Sign out
+          </Button>
+        </div>
       </div>
     </nav>
   );
