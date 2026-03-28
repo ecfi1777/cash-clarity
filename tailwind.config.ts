@@ -47,6 +47,22 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        payment: {
+          DEFAULT: "hsl(var(--payment))",
+          foreground: "hsl(var(--payment-foreground))",
+        },
+        deposit: {
+          DEFAULT: "hsl(var(--deposit))",
+          foreground: "hsl(var(--deposit-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -57,6 +73,9 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+      },
+      minWidth: {
+        'amount': '90px',
       },
       borderRadius: {
         lg: "var(--radius)",
