@@ -14,7 +14,119 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bank_balance: {
+        Row: {
+          balance: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      templates: {
+        Row: {
+          amount: number
+          created_at: string
+          direction: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_generated_date: string | null
+          name: string
+          next_due_date: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          direction: string
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          name: string
+          next_due_date?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          direction?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          name?: string
+          next_due_date?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          cleared: boolean
+          cleared_date: string | null
+          created_at: string
+          date: string
+          direction: string
+          id: string
+          is_recurring: boolean
+          name: string
+          template_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          cleared?: boolean
+          cleared_date?: string | null
+          created_at?: string
+          date: string
+          direction: string
+          id?: string
+          is_recurring?: boolean
+          name: string
+          template_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cleared?: boolean
+          cleared_date?: string | null
+          created_at?: string
+          date?: string
+          direction?: string
+          id?: string
+          is_recurring?: boolean
+          name?: string
+          template_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
