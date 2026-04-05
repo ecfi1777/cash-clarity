@@ -91,6 +91,7 @@ export type Database = {
           id: string
           is_recurring: boolean
           name: string
+          source: string
           template_id: string | null
           type: string
           updated_at: string
@@ -106,6 +107,7 @@ export type Database = {
           id?: string
           is_recurring?: boolean
           name: string
+          source?: string
           template_id?: string | null
           type: string
           updated_at?: string
@@ -121,6 +123,7 @@ export type Database = {
           id?: string
           is_recurring?: boolean
           name?: string
+          source?: string
           template_id?: string | null
           type?: string
           updated_at?: string
