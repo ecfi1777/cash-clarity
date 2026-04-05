@@ -118,6 +118,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
   const [csvRows, setCsvRows] = useState<CSVRow[]>([]);
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [newRows, setNewRows] = useState<NewRow[]>([]);
+  const [duplicateCount, setDuplicateCount] = useState(0);
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
