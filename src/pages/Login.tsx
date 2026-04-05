@@ -29,9 +29,22 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError('Invalid email or password. Please try again.');
+
+    if (isSignUp) {
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters.');
+        setSubmitting(false);
+        return;
+      }
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setError(error.message);
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError('Invalid email or password. Please try again.');
+      }
     }
     setSubmitting(false);
   };
