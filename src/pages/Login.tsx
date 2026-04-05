@@ -83,6 +83,33 @@ export default function Login() {
     setResetSubmitting(false);
   };
 
+  if (signUpSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-[400px] border rounded-lg p-5 bg-card text-center">
+          <h1 className="text-lg font-medium text-foreground mb-2">Cash Clarity</h1>
+          <div className="my-6">
+            <p className="text-sm text-foreground font-medium mb-2">Account created!</p>
+            <p className="text-sm text-muted-foreground">
+              Please check your email to verify your account before signing in.
+            </p>
+          </div>
+          <Button
+            className="w-full"
+            onClick={() => {
+              setSignUpSuccess(false);
+              setIsSignUp(false);
+              setEmail('');
+              setPassword('');
+            }}
+          >
+            Back to sign in
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (forgotMode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
