@@ -122,7 +122,10 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-[400px] border rounded-lg p-5 bg-card">
-        <h1 className="text-lg font-medium text-foreground mb-6">Cash Clarity</h1>
+        <h1 className="text-lg font-medium text-foreground mb-2">Cash Clarity</h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          {isSignUp ? 'Create a new account' : 'Sign in to your account'}
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">Email</label>
@@ -142,7 +145,7 @@ export default function Login() {
                 required
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
                 className="pr-10"
               />
               <button
@@ -157,16 +160,25 @@ export default function Login() {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? (isSignUp ? 'Creating account…' : 'Signing in…') : (isSignUp ? 'Create account' : 'Sign in')}
           </Button>
         </form>
-        <button
-          type="button"
-          className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          onClick={() => setForgotMode(true)}
-        >
-          Forgot password?
-        </button>
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setForgotMode(true)}
+          >
+            Forgot password?
+          </button>
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
+          >
+            {isSignUp ? 'Back to sign in' : 'Create account'}
+          </button>
+        </div>
       </div>
     </div>
   );
