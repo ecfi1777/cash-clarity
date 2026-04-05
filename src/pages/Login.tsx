@@ -40,6 +40,10 @@ export default function Login() {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) {
         setError(error.message);
+      } else {
+        setSignUpSuccess(true);
+        setSubmitting(false);
+        return;
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
