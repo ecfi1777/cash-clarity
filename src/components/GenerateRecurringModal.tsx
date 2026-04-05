@@ -20,11 +20,8 @@ type PendingItem = {
 
 function getOccurrences(template: Template, today: Date): string[] {
   const dates: string[] = [];
-  const startStr = template.last_generated_date || template.created_at.split('T')[0];
-  const start = new Date(startStr + 'T00:00:00');
 
-  let cursor = new Date(start);
-
+  // Use next_due_date as the anchor; fall back to advancing from last_generated_date or created_at
   const addPeriod = (d: Date): Date => {
     const next = new Date(d);
     if (template.frequency === 'weekly') {
@@ -48,9 +45,21 @@ function getOccurrences(template: Template, today: Date): string[] {
     return next;
   };
 
-  // Advance from start
-  cursor = addPeriod(cursor);
+  let cursor: Date;
 
+  if (template.next_due_date) {
+    // Start from the explicitly set next due date
+    cursor = new Date(template.next_due_date + 'T00:00:00');
+  } else if (template.last_generated_date) {
+    // Advance one period from last generation
+    const start = new Date(template.last_generated_date + 'T00:00:00');
+    cursor = addPeriod(start);
+  } else {
+    // No due date and never generated — nothing to generate
+    return dates;
+  }
+
+  // Collect all occurrences up to and including today
   while (cursor <= today) {
     dates.push(cursor.toISOString().split('T')[0]);
     cursor = addPeriod(cursor);

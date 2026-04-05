@@ -118,10 +118,36 @@ export default function Dashboard() {
       is_recurring: true,
     })));
 
-    // Update last_generated_date on templates
+    // Update last_generated_date and advance next_due_date on templates
     const templateIds = [...new Set(items.map(i => i.template_id))];
     for (const tid of templateIds) {
-      await supabase.from('templates').update({ last_generated_date: todayStr() }).eq('id', tid);
+      // Find the latest date generated for this template
+      const templateItems = items.filter(i => i.template_id === tid);
+      const latestDate = templateItems.reduce((max, i) => i.date > max ? i.date : max, templateItems[0].date);
+      
+      // Calculate next due date by advancing one period from the latest generated date
+      const template = templates.find(t => t.id === tid);
+      let nextDue: string | null = null;
+      if (template) {
+        const d = new Date(latestDate + 'T00:00:00');
+        if (template.frequency === 'weekly') {
+          d.setDate(d.getDate() + 7);
+        } else if (template.frequency === 'monthly') {
+          d.setMonth(d.getMonth() + 1);
+        } else {
+          const quarters = [0, 3, 6, 9];
+          const curMonth = d.getMonth();
+          const nextQ = quarters.find(q => q > curMonth);
+          if (nextQ !== undefined) { d.setMonth(nextQ); d.setDate(1); }
+          else { d.setFullYear(d.getFullYear() + 1); d.setMonth(0); d.setDate(1); }
+        }
+        nextDue = d.toISOString().split('T')[0];
+      }
+      
+      await supabase.from('templates').update({ 
+        last_generated_date: latestDate,
+        next_due_date: nextDue,
+      }).eq('id', tid);
     }
     queryClient.invalidateQueries({ queryKey: ['templates'] });
     setGenerateOpen(false);
