@@ -16,8 +16,9 @@ type Props = {
     direction: string;
     type: string;
     frequency: string;
+    next_due_date?: string | null;
   };
-  onSave: (data: { name: string; amount: number; direction: string; type: string; frequency: string }) => void;
+  onSave: (data: { name: string; amount: number; direction: string; type: string; frequency: string; next_due_date: string | null }) => void;
   onDelete?: () => void;
 };
 
@@ -27,6 +28,7 @@ export function RecurringModal({ open, onOpenChange, mode, initial, onSave, onDe
   const [direction, setDirection] = useState(initial?.direction ?? 'pmt');
   const [type, setType] = useState(initial?.type ?? 'Check');
   const [frequency, setFrequency] = useState(initial?.frequency ?? 'monthly');
+  const [nextDueDate, setNextDueDate] = useState(initial?.next_due_date ?? '');
   const [showDelete, setShowDelete] = useState(false);
 
   if (showDelete) {
@@ -52,7 +54,7 @@ export function RecurringModal({ open, onOpenChange, mode, initial, onSave, onDe
     e.preventDefault();
     const amt = parseFloat(amount);
     if (!name.trim() || isNaN(amt) || amt <= 0) return;
-    onSave({ name: name.trim(), amount: amt, direction, type, frequency });
+    onSave({ name: name.trim(), amount: amt, direction, type, frequency, next_due_date: nextDueDate || null });
   };
 
   return (
@@ -107,6 +109,11 @@ export function RecurringModal({ open, onOpenChange, mode, initial, onSave, onDe
                 <SelectItem value="quarterly">Quarterly</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Next due date</Label>
+            <Input type="date" value={nextDueDate} onChange={e => setNextDueDate(e.target.value)} />
+            <p className="text-xs text-muted-foreground">When is the next occurrence due? Leave blank if not yet scheduled.</p>
           </div>
           <DialogFooter className="gap-2">
             {mode === 'edit' && onDelete && (

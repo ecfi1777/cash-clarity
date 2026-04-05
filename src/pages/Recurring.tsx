@@ -18,7 +18,7 @@ export default function Recurring() {
 
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; template?: Template }>({ open: false, mode: 'add' });
 
-  const handleSave = (data: { name: string; amount: number; direction: string; type: string; frequency: string }) => {
+  const handleSave = (data: { name: string; amount: number; direction: string; type: string; frequency: string; next_due_date: string | null }) => {
     if (modal.mode === 'add') {
       createTemplate.mutate(data);
     } else if (modal.template) {
@@ -115,6 +115,7 @@ export default function Recurring() {
             direction: modal.template.direction,
             type: modal.template.type,
             frequency: modal.template.frequency,
+            next_due_date: modal.template.next_due_date,
           } : undefined}
           onSave={handleSave}
           onDelete={handleDelete}
