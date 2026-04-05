@@ -239,7 +239,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
     setMatchedRows(matched);
     setNewRows(unmatched.map(r => ({
       ...r,
-      selected: false,
+      selected: true,
       editedDescription: r.description,
       type: 'ACH',
     })));
