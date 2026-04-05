@@ -46,15 +46,28 @@ const STEPS = ['Upload', 'Review matches', 'Review new', 'Apply'] as const;
 
 function autoDetectColumns(headers: string[]): { desc: number; date: number; amount: number; debit: number; credit: number } | null {
   const lower = headers.map(h => h.toLowerCase().trim());
-  const find = (keywords: string[]) => lower.findIndex(h => keywords.some(k => h.includes(k)));
 
-  const desc = find(['desc', 'memo', 'narr', 'detail', 'payee', 'transaction']);
-  const date = find(['date', 'posted', 'trans']);
+  // Detect date column first
+  const date = lower.findIndex(h => h.includes('date') || h.includes('posted'));
+
+  // Detect description: prioritize specific keywords, exclude date columns
+  const descKeywords = ['full description', 'description', 'desc', 'memo', 'narr', 'detail', 'payee'];
+  let desc = -1;
+  for (const kw of descKeywords) {
+    const idx = lower.findIndex((h, i) => i !== date && h.includes(kw) && !h.includes('date'));
+    if (idx >= 0) { desc = idx; break; }
+  }
+  // Last resort: 'transaction' but only if it doesn't contain 'date'
+  if (desc < 0) {
+    desc = lower.findIndex((h, i) => i !== date && h.includes('transaction') && !h.includes('date'));
+  }
+
+  const find = (keywords: string[]) => lower.findIndex(h => keywords.some(k => h.includes(k)));
   const amount = find(['amount', 'amt']);
   const debit = find(['debit', 'withdrawal', 'out']);
   const credit = find(['credit', 'deposit']);
 
-  if (desc >= 0 && date >= 0 && (amount >= 0 || (debit >= 0 && credit >= 0))) {
+  if (desc >= 0 && date >= 0 && desc !== date && (amount >= 0 || (debit >= 0 && credit >= 0))) {
     return { desc, date, amount, debit, credit };
   }
   return null;
@@ -249,7 +262,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       cleared_date: r.date,
     }));
     const newItems = newRows.filter(r => r.selected).map(r => ({
-      name: r.editedDescription,
+      name: r.description,
       amount: r.amount,
       direction: r.direction,
       type: r.type,
@@ -462,12 +475,6 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
                   <Checkbox checked={row.selected} onCheckedChange={() => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, selected: !r.selected } : r))} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium break-words">{row.description}</p>
-                    <Input
-                      value={row.editedDescription}
-                      onChange={e => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, editedDescription: e.target.value } : r))}
-                      className="h-7 text-xs mt-1"
-                      placeholder="Rename (optional)"
-                    />
                   </div>
                   <Select value={row.type} onValueChange={v => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, type: v } : r))}>
                     <SelectTrigger className="w-20 h-8"><SelectValue /></SelectTrigger>
