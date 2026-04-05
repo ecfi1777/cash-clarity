@@ -19,16 +19,19 @@ export type Database = {
           balance: number
           id: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           balance?: number
           id?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           balance?: number
           id?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
