@@ -84,7 +84,7 @@ export default function Login() {
               />
             </div>
             {resetError && <p className="text-sm text-destructive">{resetError}</p>}
-            {resetMessage && <p className="text-sm text-green-600">{resetMessage}</p>}
+            {resetMessage && <p className="text-sm text-deposit">{resetMessage}</p>}
             <Button type="submit" className="w-full" disabled={resetSubmitting}>
               {resetSubmitting ? 'Sending…' : 'Send reset link'}
             </Button>
