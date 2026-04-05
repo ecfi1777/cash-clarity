@@ -118,6 +118,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
   const [csvRows, setCsvRows] = useState<CSVRow[]>([]);
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [newRows, setNewRows] = useState<NewRow[]>([]);
+  const [duplicateCount, setDuplicateCount] = useState(0);
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -187,13 +188,26 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
     }
     setCsvRows(parsed);
 
+    // Build a set of existing transaction keys for duplicate detection
+    const existingKeys = new Set(
+      transactions.map(t => `${t.date}|${t.name.toLowerCase().trim()}|${t.amount}|${t.direction}`)
+    );
+
     // Match against outstanding transactions
     const outstanding = transactions.filter(t => !t.cleared);
     const used = new Set<string>();
     const matched: MatchedRow[] = [];
     const unmatched: CSVRow[] = [];
+    let duplicateCount = 0;
 
     for (const csvRow of parsed) {
+      // Check for duplicate against ALL existing transactions
+      const key = `${csvRow.date}|${csvRow.description.toLowerCase().trim()}|${csvRow.amount}|${csvRow.direction}`;
+      if (existingKeys.has(key)) {
+        duplicateCount++;
+        continue;
+      }
+
       let bestMatch: Transaction | null = null;
       let bestScore = -1;
 
@@ -236,6 +250,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       }
     }
 
+    setDuplicateCount(duplicateCount);
     setMatchedRows(matched);
     setNewRows(unmatched.map(r => ({
       ...r,
@@ -517,6 +532,12 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
                 <div className="flex items-start gap-2 text-sm">
                   <span className="w-2 h-2 rounded-full bg-info mt-1.5 shrink-0" />
                   <span>{selectedNewCount} new transactions added — added as cleared</span>
+                </div>
+              )}
+              {duplicateCount > 0 && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground mt-1.5 shrink-0" />
+                  <span>{duplicateCount} duplicate transactions skipped</span>
                 </div>
               )}
               <p className="text-xs text-muted-foreground">Your true cash position will recalculate automatically once applied.</p>
