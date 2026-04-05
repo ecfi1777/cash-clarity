@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
 import Recurring from "./pages/Recurring";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const AppRoutes = () => {
       {session && <AppNav />}
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/recurring" element={<ProtectedRoute><Recurring /></ProtectedRoute>} />
