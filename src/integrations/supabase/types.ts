@@ -48,6 +48,7 @@ export type Database = {
           next_due_date: string | null
           type: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           amount: number
@@ -61,6 +62,7 @@ export type Database = {
           next_due_date?: string | null
           type: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           amount?: number
@@ -74,6 +76,7 @@ export type Database = {
           next_due_date?: string | null
           type?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -91,6 +94,7 @@ export type Database = {
           template_id: string | null
           type: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           amount: number
@@ -105,6 +109,7 @@ export type Database = {
           template_id?: string | null
           type: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           amount?: number
@@ -119,6 +124,7 @@ export type Database = {
           template_id?: string | null
           type?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
