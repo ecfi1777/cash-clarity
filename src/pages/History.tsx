@@ -10,7 +10,12 @@ type QuickFilter = 'all' | 'deposits' | 'unmatched';
 export default function History() {
   const { data: transactions = [], isLoading } = useTransactions();
 
-  const [fromDate, setFromDate] = useState('');
+  const firstOfMonth = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  };
+
+  const [fromDate, setFromDate] = useState(firstOfMonth());
   const [toDate, setToDate] = useState(todayStr());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
 
