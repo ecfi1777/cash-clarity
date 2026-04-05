@@ -187,13 +187,26 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
     }
     setCsvRows(parsed);
 
+    // Build a set of existing transaction keys for duplicate detection
+    const existingKeys = new Set(
+      transactions.map(t => `${t.date}|${t.name.toLowerCase().trim()}|${t.amount}|${t.direction}`)
+    );
+
     // Match against outstanding transactions
     const outstanding = transactions.filter(t => !t.cleared);
     const used = new Set<string>();
     const matched: MatchedRow[] = [];
     const unmatched: CSVRow[] = [];
+    let duplicateCount = 0;
 
     for (const csvRow of parsed) {
+      // Check for duplicate against ALL existing transactions
+      const key = `${csvRow.date}|${csvRow.description.toLowerCase().trim()}|${csvRow.amount}|${csvRow.direction}`;
+      if (existingKeys.has(key)) {
+        duplicateCount++;
+        continue;
+      }
+
       let bestMatch: Transaction | null = null;
       let bestScore = -1;
 
@@ -236,6 +249,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       }
     }
 
+    setDuplicateCount(duplicateCount);
     setMatchedRows(matched);
     setNewRows(unmatched.map(r => ({
       ...r,
