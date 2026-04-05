@@ -40,7 +40,7 @@ export function TransactionTable({ transactions, direction, onToggleCleared, onE
                     type="date"
                     value={tx.date}
                     onChange={e => onDateChange(tx.id, e.target.value)}
-                    className="h-7 w-32 text-sm"
+                    className="h-7 w-36 text-sm"
                   />
                 )}
               </td>
