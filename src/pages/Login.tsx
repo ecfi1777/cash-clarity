@@ -14,6 +14,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
 
   // Forgot password state
   const [forgotMode, setForgotMode] = useState(false);
