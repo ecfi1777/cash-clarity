@@ -459,11 +459,16 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
               {newRows.map((row, idx) => (
                 <div key={idx} className={`flex items-center gap-2 p-2 rounded border text-sm ${!row.selected ? 'opacity-35' : ''}`}>
                   <Checkbox checked={row.selected} onCheckedChange={() => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, selected: !r.selected } : r))} />
-                  <Input
-                    value={row.editedDescription}
-                    onChange={e => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, editedDescription: e.target.value } : r))}
-                    className="flex-1 h-8 text-sm"
-                  />
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      value={row.editedDescription}
+                      onChange={e => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, editedDescription: e.target.value } : r))}
+                      className="h-8 text-sm"
+                    />
+                    <div className="text-[10px] text-muted-foreground truncate mt-0.5" title={row.description}>
+                      {row.description}
+                    </div>
+                  </div>
                   <Select value={row.type} onValueChange={v => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, type: v } : r))}>
                     <SelectTrigger className="w-20 h-8"><SelectValue /></SelectTrigger>
                     <SelectContent>
