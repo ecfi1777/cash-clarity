@@ -38,7 +38,7 @@ type Props = {
   transactions: Transaction[];
   onApply: (data: {
     cleared: Array<{ id: string; cleared_date: string }>;
-    newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string }>;
+    newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string; source: string }>;
   }) => void;
 };
 
@@ -256,6 +256,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       date: r.date,
       cleared: true,
       cleared_date: r.date,
+      source: 'csv_unmatched',
     }));
     onApply({ cleared, newItems });
   };

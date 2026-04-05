@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Plus, RefreshCw, Upload } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Dashboard() {
   const { data: transactions = [], isLoading: txLoading } = useTransactions();
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [viewFilter, setViewFilter] = useState<'all' | 'unmatched'>('all');
 
   const bankBalance = bankBalanceRow?.balance ?? 0;
   const displayBankInput = bankInput ?? bankBalance.toString();
@@ -53,6 +55,16 @@ export default function Dashboard() {
   const pending = useMemo(() =>
     transactions.filter(t => !t.cleared && t.direction === 'dep').sort((a, b) => a.date.localeCompare(b.date)),
     [transactions]
+  );
+
+  const filteredOutstanding = useMemo(() =>
+    viewFilter === 'unmatched' ? outstanding.filter(t => t.source === 'csv_unmatched') : outstanding,
+    [outstanding, viewFilter]
+  );
+
+  const filteredPending = useMemo(() =>
+    viewFilter === 'unmatched' ? pending.filter(t => t.source === 'csv_unmatched') : pending,
+    [pending, viewFilter]
   );
 
   const recentlyCleared = useMemo(() =>
@@ -155,7 +167,7 @@ export default function Dashboard() {
 
   const handleCSVApply = async (data: {
     cleared: Array<{ id: string; cleared_date: string }>;
-    newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string }>;
+    newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string; source: string }>;
   }) => {
     if (data.cleared.length > 0) {
       await bulkUpdate.mutateAsync(data.cleared.map(c => ({
@@ -168,6 +180,7 @@ export default function Dashboard() {
       await bulkInsert.mutateAsync(data.newItems.map(i => ({
         ...i,
         is_recurring: false,
+        source: i.source,
       })));
     }
     setCsvOpen(false);
@@ -214,6 +227,14 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* View filter tabs */}
+      <Tabs value={viewFilter} onValueChange={v => setViewFilter(v as 'all' | 'unmatched')}>
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="unmatched">Unmatched imports</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Action bar */}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setTxModal({ open: true, mode: 'add', direction: 'pmt' })}>
@@ -234,13 +255,13 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-base font-medium">Outstanding payments</h2>
-          <Badge variant="payment">{outstanding.length} outstanding · −${formatCurrency(outstandingTotal)}</Badge>
+          <Badge variant="payment">{filteredOutstanding.length} outstanding · −${formatCurrency(filteredOutstanding.reduce((s, t) => s + t.amount, 0))}</Badge>
         </div>
-        {outstanding.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">No outstanding payments.</p>
+        {filteredOutstanding.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">{viewFilter === 'unmatched' ? 'No unmatched imported payments.' : 'No outstanding payments.'}</p>
         ) : (
           <TransactionTable
-            transactions={outstanding}
+            transactions={filteredOutstanding}
             direction="pmt"
             onToggleCleared={handleToggleCleared}
             onEdit={tx => setTxModal({ open: true, mode: 'edit', direction: 'pmt', tx })}
@@ -254,13 +275,13 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-base font-medium">Pending deposits</h2>
-          <Badge variant="deposit">{pending.length} pending · +${formatCurrency(pendingTotal)}</Badge>
+          <Badge variant="deposit">{filteredPending.length} pending · +${formatCurrency(filteredPending.reduce((s, t) => s + t.amount, 0))}</Badge>
         </div>
-        {pending.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">No pending deposits.</p>
+        {filteredPending.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">{viewFilter === 'unmatched' ? 'No unmatched imported deposits.' : 'No pending deposits.'}</p>
         ) : (
           <TransactionTable
-            transactions={pending}
+            transactions={filteredPending}
             direction="dep"
             onToggleCleared={handleToggleCleared}
             onEdit={tx => setTxModal({ open: true, mode: 'edit', direction: 'dep', tx })}

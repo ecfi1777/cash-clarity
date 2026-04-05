@@ -13,6 +13,7 @@ export type Transaction = {
   cleared_date: string | null;
   is_recurring: boolean;
   template_id: string | null;
+  source: string;
   created_at: string;
   updated_at: string;
 };
@@ -194,6 +195,7 @@ export function useBulkInsertTransactions() {
       cleared_date?: string | null;
       is_recurring?: boolean;
       template_id?: string | null;
+      source?: string;
     }>) => {
       const { error } = await supabase.from('transactions').insert(txs);
       if (error) throw error;

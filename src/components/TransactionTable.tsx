@@ -47,6 +47,7 @@ export function TransactionTable({ transactions, direction, onToggleCleared, onE
               <td className="py-2 px-2">
                 <span>{tx.name}</span>
                 {tx.is_recurring && <Badge variant="info" className="ml-1.5 text-[10px] px-1.5 py-0">rec</Badge>}
+                {tx.source === 'csv_unmatched' && <Badge variant="warning" className="ml-1.5 text-[10px] px-1.5 py-0">CSV</Badge>}
               </td>
               <td className="py-2 px-2">
                 <Badge variant="muted">{tx.type}</Badge>
