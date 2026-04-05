@@ -53,9 +53,17 @@ export function useBankBalance() {
         .from('bank_balance')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+      // Create a balance row for this user if none exists
+      const { data: newRow, error: insertErr } = await supabase
+        .from('bank_balance')
+        .insert({ balance: 0 })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+      return newRow;
     },
   });
 }
