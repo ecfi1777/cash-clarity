@@ -17,20 +17,29 @@ export default function ResetPassword() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check for recovery token in URL hash
-    const hash = window.location.hash;
-    if (hash.includes('type=recovery')) {
-      setValidRecovery(true);
-    }
-
-    // Listen for PASSWORD_RECOVERY event
+    // Listen for PASSWORD_RECOVERY event from the recovery link
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setValidRecovery(true);
+        setChecking(false);
       }
     });
 
-    setChecking(false);
+    // Check for recovery token in URL hash/query
+    const hash = window.location.hash;
+    const search = window.location.search;
+    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+      setValidRecovery(true);
+      setChecking(false);
+    } else {
+      // Give the auth state change a moment to fire (token exchange)
+      const timeout = setTimeout(() => setChecking(false), 3000);
+      return () => {
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+      };
+    }
+
     return () => subscription.unsubscribe();
   }, []);
 
