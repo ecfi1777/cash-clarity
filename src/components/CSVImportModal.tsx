@@ -466,7 +466,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
                       onChange={e => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, editedDescription: e.target.value } : r))}
                       className="h-8 text-sm"
                     />
-                    <div className="text-[10px] text-muted-foreground truncate mt-0.5" title={row.description}>
+                    <div className="text-xs text-muted-foreground mt-1" title={row.description}>
                       {row.description}
                     </div>
                   </div>
