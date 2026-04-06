@@ -111,8 +111,9 @@ export function useInsertImportRows() {
       review_status: string;
       selected_for_apply: boolean;
     }>) => {
-      const { error } = await supabase.from('bank_import_rows' as any).insert(rows as any);
+      const { data, error } = await supabase.from('bank_import_rows' as any).insert(rows as any).select('id');
       if (error) throw error;
+      return (data ?? []) as unknown as Array<{ id: string }>;
     },
   });
 }
@@ -167,12 +168,15 @@ export function useApplyBatch() {
         if (error) throw error;
       }
 
-      // 2. Insert unmatched rows as new expected_transactions
+      // 2. Insert unmatched rows as new expected_transactions (return IDs for change log)
+      let insertedIds: string[] = [];
       if (params.newTransactions.length > 0) {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('expected_transactions' as any)
-          .insert(params.newTransactions as any);
+          .insert(params.newTransactions as any)
+          .select('id');
         if (error) throw error;
+        insertedIds = (inserted ?? []).map((r: any) => r.id);
       }
 
       // 3. Save transaction_matches
@@ -183,11 +187,31 @@ export function useApplyBatch() {
         if (error) throw error;
       }
 
-      // 4. Write batch_change_log
-      if (params.changeLog.length > 0) {
+      // 4. Build insert change log entries (with actual inserted IDs)
+      const insertChangeLogs = insertedIds.map((id, i) => ({
+        batch_id: params.batchId,
+        entity_type: 'expected_transaction',
+        entity_id: id,
+        action_type: 'insert',
+        before_state: null,
+        after_state: params.newTransactions[i],
+      }));
+
+      // 4b. Batch status change log entry
+      const batchChangeLog = {
+        batch_id: params.batchId,
+        entity_type: 'batch',
+        entity_id: params.batchId,
+        action_type: 'status_update',
+        before_state: { status: 'draft' },
+        after_state: { status: 'applied', ...params.counts },
+      };
+
+      const allChangeLogs = [...params.changeLog, ...insertChangeLogs, batchChangeLog];
+      if (allChangeLogs.length > 0) {
         const { error } = await supabase
           .from('batch_change_log' as any)
-          .insert(params.changeLog as any);
+          .insert(allChangeLogs as any);
         if (error) throw error;
       }
 

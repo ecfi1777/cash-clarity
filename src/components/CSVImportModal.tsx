@@ -18,7 +18,7 @@ import {
   type BankRow,
   type OutstandingCandidate,
 } from '@/lib/matching';
-import { useCreateImportBatch, useInsertImportRows, useFetchExistingFingerprints } from '@/hooks/use-import';
+import { useCreateImportBatch, useInsertImportRows, useFetchExistingFingerprints, useApplyBatch } from '@/hooks/use-import';
 
 type CSVRow = {
   description: string;
@@ -46,10 +46,6 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transactions: ExpectedTransaction[];
-  onApply: (data: {
-    cleared: Array<{ id: string; cleared_date: string }>;
-    newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string; source: string }>;
-  }) => void;
 };
 
 const STEPS = ['Upload', 'Review matches', 'Review new', 'Apply'] as const;
@@ -107,7 +103,7 @@ function parseCSV(text: string): string[][] {
   });
 }
 
-export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Props) {
+export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
   const [step, setStep] = useState(0);
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -124,11 +120,17 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [newRows, setNewRows] = useState<NewRow[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [importRowIds, setImportRowIds] = useState<string[]>([]);
+  const [matchResultsCache, setMatchResultsCache] = useState<Array<{ bankRowIndex: number; status: string; candidateId?: string; confidence?: string; daysDifference?: number | null; amountDifference?: number | null }>>([]);
+  // Maps nonDupe index → original bankRows index (which corresponds to importRowIds index)
+  const [nonDupeToOriginalMap, setNonDupeToOriginalMap] = useState<number[]>([]);
 
   // Import persistence hooks
   const createBatch = useCreateImportBatch();
   const insertRows = useInsertImportRows();
   const { data: existingFingerprints = new Set<string>() } = useFetchExistingFingerprints();
+  const applyBatch = useApplyBatch();
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -233,9 +235,10 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
     const allExisting = new Set([...existingFingerprints, ...existingTxFingerprints]);
     const dupeSet = detectDuplicates(fingerprints, allExisting);
 
-    // Filter out duplicates
+    // Filter out duplicates and build nonDupe→original index map
     const nonDupeBankRows: BankRow[] = [];
     const nonDupeParsed: CSVRow[] = [];
+    const ndToOrigMap: number[] = [];
     let dupCount = 0;
     for (let i = 0; i < bankRows.length; i++) {
       if (dupeSet.has(i)) {
@@ -243,8 +246,10 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       } else {
         nonDupeBankRows.push({ ...bankRows[i], index: nonDupeBankRows.length });
         nonDupeParsed.push(parsed[i]);
+        ndToOrigMap.push(i); // nonDupe index → original bankRows index
       }
     }
+    setNonDupeToOriginalMap(ndToOrigMap);
 
     setDuplicateCount(dupCount);
 
@@ -259,6 +264,7 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
     }));
 
     const matchResults = findMatches(nonDupeBankRows, candidates, []);
+    setMatchResultsCache(matchResults);
 
     const matched: MatchedRow[] = [];
     const unmatched: CSVRow[] = [];
@@ -329,7 +335,9 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
           };
         });
 
-        await insertRows.mutateAsync(importRows);
+        const insertedRowData = await insertRows.mutateAsync(importRows);
+        setImportRowIds(insertedRowData.map(r => r.id));
+        setBatchId(batch.id);
       }
     } catch (err) {
       console.error('Failed to persist import batch:', err);
@@ -348,22 +356,94 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
     if (file) handleFile(file);
   };
 
-  const handleApply = () => {
-    const cleared = matchedRows.filter(r => r.selected).map(r => ({
+  const handleApply = async () => {
+    if (!batchId) return;
+
+    const selectedMatched = matchedRows.filter(r => r.selected);
+    const selectedNew = newRows.filter(r => r.selected);
+
+    // Build matchedUpdates with real before_state from transactions prop
+    const matchedUpdates = selectedMatched.map(r => ({
       id: r.transactionId,
-      cleared_date: r.date,
+      cleared_at: new Date(r.date + 'T00:00:00').toISOString(),
     }));
-    const newItems = newRows.filter(r => r.selected).map(r => ({
+
+    // Build newTransactions
+    const newTransactions = selectedNew.map(r => ({
       name: r.description,
-      amount: r.amount,
+      expected_amount: r.amount,
       direction: r.direction,
       type: r.type,
-      date: r.date,
-      cleared: true,
-      cleared_date: r.date,
-      source: 'csv_unmatched',
+      scheduled_date: r.date,
+      status: 'cleared_manual',
+      cleared_at: new Date(r.date + 'T00:00:00').toISOString(),
+      source: 'import_unmatched',
+      source_batch_id: batchId,
     }));
-    onApply({ cleared, newItems });
+
+    // Build matchRecords — map matched rows to their import row IDs
+    const matchRecords = selectedMatched.map(r => {
+      const matchResult = matchResultsCache.find(mr => mr.candidateId === r.transactionId);
+      // matchResult.bankRowIndex is the nonDupe index. Use nonDupeToOriginalMap to get
+      // the original bankRows index, which maps 1:1 to importRowIds.
+      const nonDupeIdx = matchResult?.bankRowIndex ?? 0;
+      const originalIdx = nonDupeToOriginalMap[nonDupeIdx] ?? 0;
+      return {
+        batch_id: batchId,
+        bank_import_row_id: importRowIds[originalIdx] ?? importRowIds[0],
+        expected_transaction_id: r.transactionId,
+        match_status: 'confirmed',
+        match_confidence: r.confidence,
+        days_difference: r.daysDiff,
+        amount_difference: 0,
+      };
+    });
+
+    // Build changeLog with real before_state from transactions prop
+    const changeLog = selectedMatched.map(r => {
+      const tx = transactions.find(t => t.id === r.transactionId);
+      return {
+        batch_id: batchId,
+        entity_type: 'expected_transaction',
+        entity_id: r.transactionId,
+        action_type: 'status_update',
+        before_state: tx ? {
+          status: tx.status,
+          cleared_at: tx.cleared_at,
+          expected_amount: tx.expected_amount,
+          scheduled_date: tx.scheduled_date,
+          name: tx.name,
+          direction: tx.direction,
+          type: tx.type,
+          source: tx.source,
+        } : { status: 'outstanding' },
+        after_state: {
+          status: 'matched',
+          cleared_at: new Date(r.date + 'T00:00:00').toISOString(),
+        },
+      };
+    });
+
+    const counts = {
+      matched_count: selectedMatched.length,
+      partial_match_count: 0,
+      unmatched_count: selectedNew.length,
+      duplicate_count: duplicateCount,
+    };
+
+    try {
+      await applyBatch.mutateAsync({
+        batchId,
+        matchedUpdates,
+        newTransactions,
+        matchRecords,
+        changeLog,
+        counts,
+      });
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Failed to apply batch:', err);
+    }
   };
 
   const selectedMatchCount = matchedRows.filter(r => r.selected).length;
