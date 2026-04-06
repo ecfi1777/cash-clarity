@@ -1,0 +1,1 @@
+ALTER TABLE expected_transactions ADD COLUMN secondary_description text;

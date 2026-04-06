@@ -248,6 +248,7 @@ export type Database = {
           notes: string | null
           recurring_template_id: string | null
           scheduled_date: string
+          secondary_description: string | null
           source: string
           source_batch_id: string | null
           status: string
@@ -267,6 +268,7 @@ export type Database = {
           notes?: string | null
           recurring_template_id?: string | null
           scheduled_date: string
+          secondary_description?: string | null
           source?: string
           source_batch_id?: string | null
           status?: string
@@ -286,6 +288,7 @@ export type Database = {
           notes?: string | null
           recurring_template_id?: string | null
           scheduled_date?: string
+          secondary_description?: string | null
           source?: string
           source_batch_id?: string | null
           status?: string
