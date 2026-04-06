@@ -383,35 +383,14 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
 
     // Build matchRecords — map matched rows to their import row IDs
     const matchRecords = selectedMatched.map(r => {
-      // Find the match result for this transaction
       const matchResult = matchResultsCache.find(mr => mr.candidateId === r.transactionId);
-      // The importRowIds correspond to ALL bankRows (including dupes). 
-      // Match results use nonDupe indices. We need to find the correct import row.
-      // Since importRows were built from bankRows in order, and matchResult.bankRowIndex 
-      // is the nonDupe index, we need to account for duplicates.
-      // For now, find by matching the candidate ID in the cached match results
-      const bankRowIdx = matchResult?.bankRowIndex ?? 0;
-      // importRowIds includes all rows (dupes + non-dupes), dupes come first in bankRows order
-      // We need the actual index in the full bankRows array. Since we stored all bankRows,
-      // and dupes were marked, we search for the non-dupe row at this index.
-      // However, importRowIds maps 1:1 to the importRows array which maps 1:1 to bankRows.
-      // We need to find which bankRows index corresponds to this nonDupe index.
-      
-      // Find which original bankRow index this nonDupe index maps to
-      // We stored dupeSet during processCSV but it's not in state. 
-      // Instead, use the suggested_match_id on import rows to find the right one.
-      // Simpler: find the import row whose suggested_match_id matches this transaction
-      // Since we don't have that data here, use position mapping.
-      // The safest approach: importRowIds are in bankRows order. Non-dupe rows were filtered
-      // to build nonDupeBankRows. bankRowIdx is the index into nonDupeBankRows.
-      // We need to find the original bankRows index for that nonDupe entry.
-      
-      // Since we can't perfectly reconstruct without dupeSet, use a fallback:
-      // The import rows with suggested_match_id set to this transaction's ID
-      // For the MVP, we use the first import row that has this match
+      // matchResult.bankRowIndex is the nonDupe index. Use nonDupeToOriginalMap to get
+      // the original bankRows index, which maps 1:1 to importRowIds.
+      const nonDupeIdx = matchResult?.bankRowIndex ?? 0;
+      const originalIdx = nonDupeToOriginalMap[nonDupeIdx] ?? 0;
       return {
         batch_id: batchId,
-        bank_import_row_id: importRowIds[bankRowIdx] ?? importRowIds[0],
+        bank_import_row_id: importRowIds[originalIdx] ?? importRowIds[0],
         expected_transaction_id: r.transactionId,
         match_status: 'confirmed',
         match_confidence: r.confidence,
