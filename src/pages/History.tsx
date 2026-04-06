@@ -18,6 +18,10 @@ export default function History() {
   const [fromDate, setFromDate] = useState(firstOfMonth());
   const [toDate, setToDate] = useState(todayStr());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
+  const [exactAmount, setExactAmount] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const hasExactAmount = !isNaN(parseFloat(exactAmount));
 
   const filtered = useMemo(() => {
     return transactions
@@ -27,8 +31,20 @@ export default function History() {
         if (quickFilter === 'unmatched') return t.source === 'import_unmatched';
         return true;
       })
+      .filter(t => {
+        const absCents = Math.round(Math.abs(t.expected_amount) * 100);
+        const exactVal = parseFloat(exactAmount);
+        if (!isNaN(exactVal)) {
+          return absCents === Math.round(exactVal * 100);
+        }
+        const minVal = parseFloat(minAmount);
+        const maxVal = parseFloat(maxAmount);
+        if (!isNaN(minVal) && absCents < Math.round(minVal * 100)) return false;
+        if (!isNaN(maxVal) && absCents > Math.round(maxVal * 100)) return false;
+        return true;
+      })
       .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
-  }, [transactions, fromDate, toDate, quickFilter]);
+  }, [transactions, fromDate, toDate, quickFilter, exactAmount, minAmount, maxAmount]);
 
   const totalOut = filtered.filter(t => t.direction === 'pmt').reduce((s, t) => s + t.expected_amount, 0);
   const totalIn = filtered.filter(t => t.direction === 'dep').reduce((s, t) => s + t.expected_amount, 0);
@@ -78,6 +94,22 @@ export default function History() {
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">To date</label>
           <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-40 h-8" />
+        </div>
+      </div>
+
+      {/* Amount filter */}
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Exact amount</label>
+          <Input type="number" step="0.01" min="0" placeholder="Exact" value={exactAmount} onChange={e => setExactAmount(e.target.value)} className="w-28 h-8" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Min</label>
+          <Input type="number" step="0.01" min="0" placeholder="Min" value={minAmount} onChange={e => setMinAmount(e.target.value)} className="w-28 h-8" disabled={hasExactAmount} style={hasExactAmount ? { opacity: 0.4 } : {}} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Max</label>
+          <Input type="number" step="0.01" min="0" placeholder="Max" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} className="w-28 h-8" disabled={hasExactAmount} style={hasExactAmount ? { opacity: 0.4 } : {}} />
         </div>
       </div>
 
