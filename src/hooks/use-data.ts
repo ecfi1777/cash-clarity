@@ -19,6 +19,7 @@ export type ExpectedTransaction = {
   vendor_id: string | null;
   check_number: string | null;
   notes: string | null;
+  secondary_description: string | null;
   created_at: string;
   updated_at: string;
 };

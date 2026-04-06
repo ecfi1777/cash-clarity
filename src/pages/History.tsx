@@ -2,13 +2,16 @@ import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { formatCurrency, todayStr } from '@/lib/format';
-import { useExpectedTransactions } from '@/hooks/use-data';
+import { useExpectedTransactions, useUpdateExpectedTransaction } from '@/hooks/use-data';
+import { toast } from 'sonner';
 
 type QuickFilter = 'all' | 'deposits' | 'unmatched';
 
 export default function History() {
   const { data: transactions = [], isLoading } = useExpectedTransactions();
+  const updateTx = useUpdateExpectedTransaction();
 
   const firstOfMonth = () => {
     const d = new Date();
@@ -22,6 +25,9 @@ export default function History() {
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const hasExactAmount = !isNaN(parseFloat(exactAmount));
+  const [descriptionQuery, setDescriptionQuery] = useState('');
+  const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null);
+  const [editingSecondary, setEditingSecondary] = useState('');
 
   const filtered = useMemo(() => {
     return transactions
@@ -43,8 +49,15 @@ export default function History() {
         if (!isNaN(maxVal) && absCents > Math.round(maxVal * 100)) return false;
         return true;
       })
+      .filter(t => {
+        const q = descriptionQuery.trim().toLowerCase();
+        if (!q) return true;
+        const primary = (t.name ?? '').toLowerCase();
+        const secondary = (t.secondary_description ?? '').toLowerCase();
+        return primary.includes(q) || secondary.includes(q);
+      })
       .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
-  }, [transactions, fromDate, toDate, quickFilter, exactAmount, minAmount, maxAmount]);
+  }, [transactions, fromDate, toDate, quickFilter, exactAmount, minAmount, maxAmount, descriptionQuery]);
 
   const totalOut = filtered.filter(t => t.direction === 'pmt').reduce((s, t) => s + t.expected_amount, 0);
   const totalIn = filtered.filter(t => t.direction === 'dep').reduce((s, t) => s + t.expected_amount, 0);
@@ -67,6 +80,33 @@ export default function History() {
     return 'deposit' as const;
   };
 
+  const handleToggleExpand = (tx: { id: string; secondary_description?: string | null }) => {
+    if (expandedCheckId === tx.id) {
+      setExpandedCheckId(null);
+      setEditingSecondary('');
+    } else {
+      setExpandedCheckId(tx.id);
+      setEditingSecondary(tx.secondary_description ?? '');
+    }
+  };
+
+  const handleSaveSecondary = (txId: string) => {
+    const cleaned = editingSecondary.trim();
+    updateTx.mutate(
+      { id: txId, secondary_description: cleaned === '' ? null : cleaned },
+      {
+        onSuccess: () => {
+          toast.success('Saved');
+          setExpandedCheckId(null);
+          setEditingSecondary('');
+        },
+        onError: () => {
+          toast.error('Failed to save');
+        },
+      }
+    );
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-lg font-medium">History</h1>
@@ -85,7 +125,7 @@ export default function History() {
         ))}
       </div>
 
-      {/* Date filter bar */}
+      {/* Date + description filter bar */}
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">From date</label>
@@ -94,6 +134,10 @@ export default function History() {
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">To date</label>
           <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-40 h-8" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Description</label>
+          <Input type="text" placeholder="Search description" value={descriptionQuery} onChange={e => setDescriptionQuery(e.target.value)} className="w-48 h-8" />
         </div>
       </div>
 
@@ -131,31 +175,71 @@ export default function History() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(tx => (
-              <tr key={tx.id} className="border-b">
-                <td className="py-2 px-2">{tx.scheduled_date}</td>
-                <td className="py-2 px-2">
-                  {tx.name}
-                  {tx.source === 'import_unmatched' && (
-                    <Badge variant="outline" className="ml-2 text-xs bg-yellow-100 text-yellow-800 border-yellow-300">CSV</Badge>
+            {filtered.map(tx => {
+              const isCheck = tx.type === 'Check';
+              const isExpanded = expandedCheckId === tx.id;
+              return (
+                <>
+                  <tr key={tx.id} className="border-b">
+                    <td className="py-2 px-2">{tx.scheduled_date}</td>
+                    <td className="py-2 px-2">
+                      <div className="flex items-start gap-1">
+                        {isCheck && (
+                          <button
+                            onClick={() => handleToggleExpand(tx)}
+                            className="mt-0.5 p-0 text-muted-foreground hover:text-foreground"
+                          >
+                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </button>
+                        )}
+                        <div>
+                          {tx.name}
+                          {tx.secondary_description && (
+                            <div className="text-xs text-muted-foreground">{tx.secondary_description}</div>
+                          )}
+                        </div>
+                      </div>
+                      {tx.source === 'import_unmatched' && (
+                        <Badge variant="outline" className="ml-2 text-xs bg-yellow-100 text-yellow-800 border-yellow-300">CSV</Badge>
+                      )}
+                    </td>
+                    <td className="py-2 px-2"><Badge variant="muted">{tx.type}</Badge></td>
+                    <td className="py-2 px-2">
+                      <Badge variant={tx.direction === 'pmt' ? 'payment' : 'deposit'}>
+                        {tx.direction === 'pmt' ? 'payment' : 'deposit'}
+                      </Badge>
+                    </td>
+                    <td className="py-2 px-2">
+                      <Badge variant={statusVariant(tx.status)}>
+                        {statusLabel(tx.status)}
+                      </Badge>
+                    </td>
+                    <td className={`py-2 px-2 text-right min-w-amount ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
+                      {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.expected_amount)}
+                    </td>
+                  </tr>
+                  {isCheck && isExpanded && (
+                    <tr key={`${tx.id}-edit`} className="border-b bg-muted/30">
+                      <td colSpan={6} className="py-2 px-2">
+                        <div className="flex items-center gap-2 pl-5">
+                          <label className="text-xs text-muted-foreground whitespace-nowrap">Secondary description</label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. payee name"
+                            value={editingSecondary}
+                            onChange={e => setEditingSecondary(e.target.value)}
+                            className="w-64 h-7 text-sm"
+                          />
+                          <Button size="sm" className="h-7" onClick={() => handleSaveSecondary(tx.id)} disabled={updateTx.isPending}>
+                            Save
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </td>
-                <td className="py-2 px-2"><Badge variant="muted">{tx.type}</Badge></td>
-                <td className="py-2 px-2">
-                  <Badge variant={tx.direction === 'pmt' ? 'payment' : 'deposit'}>
-                    {tx.direction === 'pmt' ? 'payment' : 'deposit'}
-                  </Badge>
-                </td>
-                <td className="py-2 px-2">
-                  <Badge variant={statusVariant(tx.status)}>
-                    {statusLabel(tx.status)}
-                  </Badge>
-                </td>
-                <td className={`py-2 px-2 text-right min-w-amount ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
-                  {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.expected_amount)}
-                </td>
-              </tr>
-            ))}
+                </>
+              );
+            })}
           </tbody>
         </table>
         {filtered.length === 0 && (
