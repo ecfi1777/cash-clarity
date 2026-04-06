@@ -261,7 +261,10 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
         setBatchId(batch.id);
       }
     } catch (err) {
-      console.error('Failed to persist import batch:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Failed to persist import batch:', msg, err);
+      toast.error(`Failed to create import batch: ${msg}`);
+      return;
     }
 
     // Build matched, partial, unmatched, duplicate state
@@ -387,7 +390,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     ];
 
     const newTransactions = selectedNew.map(r => ({
-      name: r.description, expected_amount: r.amount, direction: r.direction, type: r.type,
+      name: r.editedDescription || r.description, expected_amount: r.amount, direction: r.direction, type: r.type,
       scheduled_date: r.date, status: 'cleared_manual', cleared_at: new Date(r.date + 'T00:00:00').toISOString(),
       source: 'import_unmatched', source_batch_id: batchId,
     }));
@@ -462,7 +465,9 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       toast.success('Import applied successfully');
       onOpenChange(false);
     } catch (err) {
-      console.error('Failed to apply batch:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Failed to apply batch:', msg, err);
+      toast.error(`Failed to apply import: ${msg}`);
     }
   };
 
