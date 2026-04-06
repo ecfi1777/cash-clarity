@@ -73,10 +73,25 @@ export function useFetchExistingFingerprints() {
   return useQuery({
     queryKey: ['existing_fingerprints'],
     queryFn: async () => {
+      // Step 1: get IDs of genuinely applied batches
+      const { data: batches, error: batchErr } = await supabase
+        .from('bank_import_batches' as any)
+        .select('id')
+        .eq('status', 'applied');
+      if (batchErr) throw batchErr;
+      const batchIds = ((batches ?? []) as any[]).map((b: any) => b.id);
+      if (batchIds.length === 0) return new Set<string>();
+
+      // Step 2: only fingerprints from rows that were genuinely applied
       const { data, error } = await supabase
         .from('bank_import_rows' as any)
-        .select('duplicate_fingerprint');
+        .select('duplicate_fingerprint')
+        .in('batch_id', batchIds)
+        .eq('is_duplicate', false)
+        .eq('selected_for_apply', true)
+        .not('applied_at', 'is', null);
       if (error) throw error;
+
       const fps = new Set<string>();
       for (const row of (data ?? []) as any[]) {
         fps.add(row.duplicate_fingerprint);
