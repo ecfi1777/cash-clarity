@@ -97,6 +97,22 @@ export default function History() {
         </div>
       </div>
 
+      {/* Amount filter */}
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Exact amount</label>
+          <Input type="number" step="0.01" min="0" placeholder="Exact" value={exactAmount} onChange={e => setExactAmount(e.target.value)} className="w-28 h-8" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Min</label>
+          <Input type="number" step="0.01" min="0" placeholder="Min" value={minAmount} onChange={e => setMinAmount(e.target.value)} className="w-28 h-8" disabled={hasExactAmount} style={hasExactAmount ? { opacity: 0.4 } : {}} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Max</label>
+          <Input type="number" step="0.01" min="0" placeholder="Max" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} className="w-28 h-8" disabled={hasExactAmount} style={hasExactAmount ? { opacity: 0.4 } : {}} />
+        </div>
+      </div>
+
       <p className="text-sm text-muted-foreground">
         {filtered.length} {filterLabel} · <span className="text-payment">−${formatCurrency(totalOut)} out</span> · <span className="text-deposit">+${formatCurrency(totalIn)} in</span>
       </p>
