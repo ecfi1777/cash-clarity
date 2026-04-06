@@ -6,6 +6,7 @@ const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/history', label: 'History' },
   { to: '/recurring', label: 'Recurring' },
+  { to: '/imports', label: 'Imports' },
 ];
 
 export function AppNav() {

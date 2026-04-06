@@ -8,6 +8,8 @@ import { AppNav } from "@/components/AppNav";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
 import Recurring from "./pages/Recurring";
+import Imports from "./pages/Imports";
+import ImportDetail from "./pages/ImportDetail";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -34,6 +36,8 @@ const AppRoutes = () => {
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/recurring" element={<ProtectedRoute><Recurring /></ProtectedRoute>} />
+        <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
+        <Route path="/imports/:batchId" element={<ProtectedRoute><ImportDetail /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
