@@ -235,9 +235,10 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     const allExisting = new Set([...existingFingerprints, ...existingTxFingerprints]);
     const dupeSet = detectDuplicates(fingerprints, allExisting);
 
-    // Filter out duplicates
+    // Filter out duplicates and build nonDupe→original index map
     const nonDupeBankRows: BankRow[] = [];
     const nonDupeParsed: CSVRow[] = [];
+    const ndToOrigMap: number[] = [];
     let dupCount = 0;
     for (let i = 0; i < bankRows.length; i++) {
       if (dupeSet.has(i)) {
@@ -245,8 +246,10 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       } else {
         nonDupeBankRows.push({ ...bankRows[i], index: nonDupeBankRows.length });
         nonDupeParsed.push(parsed[i]);
+        ndToOrigMap.push(i); // nonDupe index → original bankRows index
       }
     }
+    setNonDupeToOriginalMap(ndToOrigMap);
 
     setDuplicateCount(dupCount);
 
