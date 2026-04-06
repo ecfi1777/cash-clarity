@@ -284,7 +284,7 @@ export default function History() {
                   </tr>
                   {isCheck && isExpanded && (
                     <tr key={`${tx.id}-edit`} className="border-b bg-muted/30">
-                      <td colSpan={6} className="py-2 px-2">
+                      <td colSpan={7} className="py-2 px-2">
                         <div className="flex items-center gap-2 pl-5">
                           <label className="text-xs text-muted-foreground whitespace-nowrap">Secondary description</label>
                           <Input
