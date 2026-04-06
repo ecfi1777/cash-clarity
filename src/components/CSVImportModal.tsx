@@ -7,8 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { formatCurrency, parseDate, parseAmount } from '@/lib/format';
-import type { Transaction } from '@/hooks/use-data';
+import type { ExpectedTransaction } from '@/hooks/use-data';
 import { Upload } from 'lucide-react';
+import {
+  normalizeDescription,
+  extractCheckNumber,
+  buildDuplicateFingerprint,
+  findMatches,
+  detectDuplicates,
+  type BankRow,
+  type OutstandingCandidate,
+} from '@/lib/matching';
+import { useCreateImportBatch, useInsertImportRows, useFetchExistingFingerprints } from '@/hooks/use-import';
 
 type CSVRow = {
   description: string;
@@ -35,7 +45,7 @@ type NewRow = CSVRow & {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  transactions: Transaction[];
+  transactions: ExpectedTransaction[];
   onApply: (data: {
     cleared: Array<{ id: string; cleared_date: string }>;
     newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string; source: string }>;
@@ -47,17 +57,14 @@ const STEPS = ['Upload', 'Review matches', 'Review new', 'Apply'] as const;
 function autoDetectColumns(headers: string[]): { desc: number; date: number; amount: number; debit: number; credit: number } | null {
   const lower = headers.map(h => h.toLowerCase().trim());
 
-  // Detect date column first
   const date = lower.findIndex(h => h.includes('date') || h.includes('posted'));
 
-  // Detect description: prioritize specific keywords, exclude date columns
   const descKeywords = ['full description', 'description', 'desc', 'memo', 'narr', 'detail', 'payee'];
   let desc = -1;
   for (const kw of descKeywords) {
     const idx = lower.findIndex((h, i) => i !== date && h.includes(kw) && !h.includes('date'));
     if (idx >= 0) { desc = idx; break; }
   }
-  // Last resort: 'transaction' but only if it doesn't contain 'date'
   if (desc < 0) {
     desc = lower.findIndex((h, i) => i !== date && h.includes('transaction') && !h.includes('date'));
   }
@@ -105,7 +112,6 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
 
-  // Column mapping
   const [descCol, setDescCol] = useState(-1);
   const [dateCol, setDateCol] = useState(-1);
   const [amountMode, setAmountMode] = useState<'single' | 'split'>('single');
@@ -114,11 +120,15 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
   const [creditCol, setCreditCol] = useState(-1);
   const [needsMapper, setNeedsMapper] = useState(false);
 
-  // Parsed data
   const [csvRows, setCsvRows] = useState<CSVRow[]>([]);
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [newRows, setNewRows] = useState<NewRow[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
+
+  // Import persistence hooks
+  const createBatch = useCreateImportBatch();
+  const insertRows = useInsertImportRows();
+  const { data: existingFingerprints = new Set<string>() } = useFetchExistingFingerprints();
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -145,17 +155,20 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
           setCreditCol(detected.credit);
         }
         setNeedsMapper(false);
-        processCSV(rows, detected.desc, detected.date, detected.amount >= 0 ? 'single' : 'split', detected.amount, detected.debit, detected.credit);
+        processCSV(rows, detected.desc, detected.date, detected.amount >= 0 ? 'single' : 'split', detected.amount, detected.debit, detected.credit, file.name);
       } else {
         setNeedsMapper(true);
       }
     };
     reader.readAsText(file);
-  }, []);
+  }, [existingFingerprints, transactions]);
 
-  const processCSV = useCallback((rows: string[][], dCol: number, dtCol: number, mode: 'single' | 'split', aCol: number, dbCol: number, crCol: number) => {
+  const processCSV = useCallback(async (rows: string[][], dCol: number, dtCol: number, mode: 'single' | 'split', aCol: number, dbCol: number, crCol: number, fileName?: string) => {
     const parsed: CSVRow[] = [];
-    for (const row of rows) {
+    const bankRows: BankRow[] = [];
+
+    for (let idx = 0; idx < rows.length; idx++) {
+      const row = rows[idx];
       if (row.length <= Math.max(dCol, dtCol)) continue;
       const desc = row[dCol] || '';
       const dateRaw = row[dtCol] || '';
@@ -183,74 +196,95 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       }
 
       if (amount > 0) {
-        parsed.push({ description: desc, date: dateStr, amount, direction });
+        const csvRow: CSVRow = { description: desc, date: dateStr, amount, direction };
+        parsed.push(csvRow);
+
+        const norm = normalizeDescription(desc);
+        const ckNum = extractCheckNumber(desc);
+        const fp = buildDuplicateFingerprint(dateStr, amount, norm, ckNum);
+
+        bankRows.push({
+          index: bankRows.length,
+          rawDescription: desc,
+          normalizedDescription: norm,
+          checkNumber: ckNum,
+          postedDate: dateStr,
+          amount,
+          direction,
+          duplicateFingerprint: fp,
+        });
       }
     }
     setCsvRows(parsed);
 
-    // Build a set of existing transaction keys for duplicate detection
-    const existingKeys = new Set(
-      transactions.map(t => `${t.date}|${t.name.toLowerCase().trim()}|${t.amount}|${t.direction}`)
-    );
+    // Detect duplicates using fingerprints
+    const fingerprints = bankRows.map(r => r.duplicateFingerprint);
 
-    // Match against outstanding transactions
-    const outstanding = transactions.filter(t => !t.cleared);
-    const used = new Set<string>();
+    // Also build fingerprints from existing expected_transactions for duplicate detection
+    const existingTxFingerprints = new Set<string>();
+    for (const t of transactions) {
+      const norm = normalizeDescription(t.name);
+      const ckNum = extractCheckNumber(t.name);
+      const fp = buildDuplicateFingerprint(t.scheduled_date, t.expected_amount, norm, ckNum);
+      existingTxFingerprints.add(fp);
+    }
+
+    // Merge existing import row fingerprints with existing transaction fingerprints
+    const allExisting = new Set([...existingFingerprints, ...existingTxFingerprints]);
+    const dupeSet = detectDuplicates(fingerprints, allExisting);
+
+    // Filter out duplicates
+    const nonDupeBankRows: BankRow[] = [];
+    const nonDupeParsed: CSVRow[] = [];
+    let dupCount = 0;
+    for (let i = 0; i < bankRows.length; i++) {
+      if (dupeSet.has(i)) {
+        dupCount++;
+      } else {
+        nonDupeBankRows.push({ ...bankRows[i], index: nonDupeBankRows.length });
+        nonDupeParsed.push(parsed[i]);
+      }
+    }
+
+    setDuplicateCount(dupCount);
+
+    // Match against outstanding transactions using matching engine
+    const outstanding = transactions.filter(t => t.status === 'outstanding');
+    const candidates: OutstandingCandidate[] = outstanding.map(t => ({
+      id: t.id,
+      name: t.name,
+      direction: t.direction,
+      expected_amount: t.expected_amount,
+      scheduled_date: t.scheduled_date,
+    }));
+
+    const matchResults = findMatches(nonDupeBankRows, candidates, []);
+
     const matched: MatchedRow[] = [];
     const unmatched: CSVRow[] = [];
-    let duplicateCount = 0;
 
-    for (const csvRow of parsed) {
-      // Check for duplicate against ALL existing transactions
-      const key = `${csvRow.date}|${csvRow.description.toLowerCase().trim()}|${csvRow.amount}|${csvRow.direction}`;
-      if (existingKeys.has(key)) {
-        duplicateCount++;
-        continue;
-      }
-
-      let bestMatch: Transaction | null = null;
-      let bestScore = -1;
-
-      for (const tx of outstanding) {
-        if (used.has(tx.id)) continue;
-        if (tx.direction !== csvRow.direction) continue;
-        if (Math.abs(tx.amount - csvRow.amount) > 0.01) continue;
-
-        const txDate = new Date(tx.date + 'T00:00:00');
-        const csvDate = new Date(csvRow.date + 'T00:00:00');
-        const daysDiff = Math.abs(Math.round((txDate.getTime() - csvDate.getTime()) / 86400000));
-
-        let score = 0;
-        if (daysDiff === 0) score = 100;
-        else if (daysDiff <= 3) score = 50;
-        else if (daysDiff <= 7) score = 20;
-
-        if (score > bestScore || (score === bestScore && bestMatch && daysDiff < Math.abs(Math.round((new Date(bestMatch.date + 'T00:00:00').getTime() - new Date(csvRow.date + 'T00:00:00').getTime()) / 86400000)))) {
-          bestMatch = tx;
-          bestScore = score;
+    for (const result of matchResults) {
+      const csvRow = nonDupeParsed[result.bankRowIndex];
+      if (result.status === 'matched' || result.status === 'partial_match') {
+        const tx = outstanding.find(t => t.id === result.candidateId);
+        if (tx) {
+          matched.push({
+            ...csvRow,
+            transactionId: tx.id,
+            transactionName: tx.name,
+            transactionDate: tx.scheduled_date,
+            confidence: result.daysDifference === 0 ? 'exact' : (result.daysDifference ?? 99) <= 3 ? 'close' : 'amount',
+            daysDiff: result.daysDifference ?? 0,
+            selected: true,
+          });
+        } else {
+          unmatched.push(csvRow);
         }
-      }
-
-      if (bestMatch) {
-        used.add(bestMatch.id);
-        const txDate = new Date(bestMatch.date + 'T00:00:00');
-        const csvDate = new Date(csvRow.date + 'T00:00:00');
-        const daysDiff = Math.abs(Math.round((txDate.getTime() - csvDate.getTime()) / 86400000));
-        matched.push({
-          ...csvRow,
-          transactionId: bestMatch.id,
-          transactionName: bestMatch.name,
-          transactionDate: bestMatch.date,
-          confidence: daysDiff === 0 ? 'exact' : daysDiff <= 7 ? 'close' : 'amount',
-          daysDiff,
-          selected: true,
-        });
       } else {
         unmatched.push(csvRow);
       }
     }
 
-    setDuplicateCount(duplicateCount);
     setMatchedRows(matched);
     setNewRows(unmatched.map(r => ({
       ...r,
@@ -258,8 +292,51 @@ export function CSVImportModal({ open, onOpenChange, transactions, onApply }: Pr
       editedDescription: r.description,
       type: 'ACH',
     })));
+
+    // Persist batch and rows to database
+    try {
+      const batchName = fileName || 'import.csv';
+      const batch = await createBatch.mutateAsync({
+        file_name: batchName,
+        row_count: bankRows.length,
+      });
+
+      if (batch) {
+        const importRows = bankRows.map((br, i) => {
+          const isDupe = dupeSet.has(i);
+          const matchResult = !isDupe ? matchResults.find(mr => {
+            // Map back to non-dupe index
+            const nonDupeIdx = nonDupeBankRows.findIndex(ndb => ndb.rawDescription === br.rawDescription && ndb.postedDate === br.postedDate && ndb.amount === br.amount);
+            return mr.bankRowIndex === nonDupeIdx;
+          }) : null;
+
+          return {
+            batch_id: batch.id,
+            raw_description: br.rawDescription,
+            normalized_description: br.normalizedDescription,
+            check_number: br.checkNumber,
+            posted_date: br.postedDate,
+            amount: br.amount,
+            direction: br.direction,
+            type: null as string | null,
+            duplicate_fingerprint: br.duplicateFingerprint,
+            is_duplicate: isDupe,
+            suggested_match_id: matchResult?.candidateId ?? null,
+            suggested_match_confidence: matchResult?.confidence ?? null,
+            suggested_amount_difference: matchResult?.amountDifference ?? null,
+            review_status: isDupe ? 'duplicate_rejected' : (matchResult?.status ?? 'unmatched'),
+            selected_for_apply: !isDupe,
+          };
+        });
+
+        await insertRows.mutateAsync(importRows);
+      }
+    } catch (err) {
+      console.error('Failed to persist import batch:', err);
+    }
+
     setStep(1);
-  }, [transactions]);
+  }, [transactions, existingFingerprints, createBatch, insertRows]);
 
   const handleMapperSubmit = () => {
     processCSV(rawRows, descCol, dateCol, amountMode, amountCol, debitCol, creditCol);

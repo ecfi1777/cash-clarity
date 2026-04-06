@@ -8,16 +8,16 @@ import { GenerateRecurringModal } from '@/components/GenerateRecurringModal';
 import { CSVImportModal } from '@/components/CSVImportModal';
 import { formatCurrency, todayStr } from '@/lib/format';
 import {
-  useTransactions,
+  useExpectedTransactions,
   useBankBalance,
-  useTemplates,
+  useRecurringTemplates,
   useUpdateBankBalance,
-  useCreateTransaction,
-  useUpdateTransaction,
-  useDeleteTransaction,
-  useBulkInsertTransactions,
-  useBulkUpdateTransactions,
-  type Transaction,
+  useCreateExpectedTransaction,
+  useUpdateExpectedTransaction,
+  useDeleteExpectedTransaction,
+  useBulkInsertExpectedTransactions,
+  useBulkUpdateExpectedTransactions,
+  type ExpectedTransaction,
 } from '@/hooks/use-data';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,19 +26,19 @@ import { Plus, RefreshCw, Upload } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Dashboard() {
-  const { data: transactions = [], isLoading: txLoading } = useTransactions();
+  const { data: transactions = [], isLoading: txLoading } = useExpectedTransactions();
   const { data: bankBalanceRow, isLoading: bbLoading } = useBankBalance();
-  const { data: templates = [] } = useTemplates();
+  const { data: templates = [] } = useRecurringTemplates();
   const updateBankBalance = useUpdateBankBalance();
-  const createTransaction = useCreateTransaction();
-  const updateTransaction = useUpdateTransaction();
-  const deleteTransaction = useDeleteTransaction();
-  const bulkInsert = useBulkInsertTransactions();
-  const bulkUpdate = useBulkUpdateTransactions();
+  const createTransaction = useCreateExpectedTransaction();
+  const updateTransaction = useUpdateExpectedTransaction();
+  const deleteTransaction = useDeleteExpectedTransaction();
+  const bulkInsert = useBulkInsertExpectedTransactions();
+  const bulkUpdate = useBulkUpdateExpectedTransactions();
   const queryClient = useQueryClient();
 
   const [bankInput, setBankInput] = useState<string | null>(null);
-  const [txModal, setTxModal] = useState<{ open: boolean; mode: 'add' | 'edit'; direction: 'pmt' | 'dep'; tx?: Transaction }>({ open: false, mode: 'add', direction: 'pmt' });
+  const [txModal, setTxModal] = useState<{ open: boolean; mode: 'add' | 'edit'; direction: 'pmt' | 'dep'; tx?: ExpectedTransaction }>({ open: false, mode: 'add', direction: 'pmt' });
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -48,35 +48,35 @@ export default function Dashboard() {
   const displayBankInput = bankInput ?? bankBalance.toString();
 
   const outstanding = useMemo(() =>
-    transactions.filter(t => !t.cleared && t.direction === 'pmt').sort((a, b) => a.date.localeCompare(b.date)),
+    transactions.filter(t => t.status === 'outstanding' && t.direction === 'pmt').sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
     [transactions]
   );
 
   const pending = useMemo(() =>
-    transactions.filter(t => !t.cleared && t.direction === 'dep').sort((a, b) => a.date.localeCompare(b.date)),
+    transactions.filter(t => t.status === 'outstanding' && t.direction === 'dep').sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
     [transactions]
   );
 
   const filteredOutstanding = useMemo(() =>
-    viewFilter === 'unmatched' ? outstanding.filter(t => t.source === 'csv_unmatched') : outstanding,
+    viewFilter === 'unmatched' ? outstanding.filter(t => t.source === 'import_unmatched') : outstanding,
     [outstanding, viewFilter]
   );
 
   const filteredPending = useMemo(() =>
-    viewFilter === 'unmatched' ? pending.filter(t => t.source === 'csv_unmatched') : pending,
+    viewFilter === 'unmatched' ? pending.filter(t => t.source === 'import_unmatched') : pending,
     [pending, viewFilter]
   );
 
   const recentlyCleared = useMemo(() =>
     transactions
-      .filter(t => t.cleared)
-      .sort((a, b) => (b.cleared_date ?? '').localeCompare(a.cleared_date ?? ''))
+      .filter(t => t.status !== 'outstanding')
+      .sort((a, b) => (b.cleared_at ?? '').localeCompare(a.cleared_at ?? ''))
       .slice(0, 5),
     [transactions]
   );
 
-  const outstandingTotal = outstanding.reduce((s, t) => s + t.amount, 0);
-  const pendingTotal = pending.reduce((s, t) => s + t.amount, 0);
+  const outstandingTotal = outstanding.reduce((s, t) => s + t.expected_amount, 0);
+  const pendingTotal = pending.reduce((s, t) => s + t.expected_amount, 0);
   const tcp = bankBalance - outstandingTotal + pendingTotal;
 
   const handleBankBalanceChange = () => {
@@ -90,25 +90,34 @@ export default function Dashboard() {
   const handleToggleCleared = (id: string, cleared: boolean) => {
     updateTransaction.mutate({
       id,
-      cleared,
-      cleared_date: cleared ? todayStr() : null,
+      status: cleared ? 'cleared_manual' : 'outstanding',
+      cleared_at: cleared ? new Date().toISOString() : null,
     });
   };
 
-  const handleDateChange = (id: string, date: string) => {
-    updateTransaction.mutate({ id, date });
+  const handleDateChange = (id: string, scheduled_date: string) => {
+    updateTransaction.mutate({ id, scheduled_date });
   };
 
   const handleSaveTransaction = (data: { name: string; amount: number; date: string; type: string }) => {
     if (txModal.mode === 'add') {
       createTransaction.mutate({
-        ...data,
+        name: data.name,
+        expected_amount: data.amount,
         direction: txModal.direction,
-        cleared: false,
-        is_recurring: false,
+        type: data.type,
+        scheduled_date: data.date,
+        status: 'outstanding',
+        source: 'manual',
       });
     } else if (txModal.tx) {
-      updateTransaction.mutate({ id: txModal.tx.id, ...data });
+      updateTransaction.mutate({
+        id: txModal.tx.id,
+        name: data.name,
+        expected_amount: data.amount,
+        scheduled_date: data.date,
+        type: data.type,
+      });
     }
     setTxModal(prev => ({ ...prev, open: false }));
   };
@@ -125,19 +134,22 @@ export default function Dashboard() {
 
   const handleGenerateApply = async (items: Array<{ name: string; amount: number; direction: string; type: string; date: string; template_id: string }>) => {
     await bulkInsert.mutateAsync(items.map(i => ({
-      ...i,
-      cleared: false,
-      is_recurring: true,
+      name: i.name,
+      expected_amount: i.amount,
+      direction: i.direction,
+      type: i.type,
+      scheduled_date: i.date,
+      status: 'outstanding',
+      source: 'recurring_generated',
+      recurring_template_id: i.template_id,
     })));
 
-    // Update last_generated_date and advance next_due_date on templates
+    // Update last_generated_date and advance next_due_date on recurring_templates
     const templateIds = [...new Set(items.map(i => i.template_id))];
     for (const tid of templateIds) {
-      // Find the latest date generated for this template
       const templateItems = items.filter(i => i.template_id === tid);
       const latestDate = templateItems.reduce((max, i) => i.date > max ? i.date : max, templateItems[0].date);
-      
-      // Calculate next due date by advancing one period from the latest generated date
+
       const template = templates.find(t => t.id === tid);
       let nextDue: string | null = null;
       if (template) {
@@ -155,13 +167,13 @@ export default function Dashboard() {
         }
         nextDue = d.toISOString().split('T')[0];
       }
-      
-      await supabase.from('templates').update({ 
+
+      await supabase.from('recurring_templates' as any).update({
         last_generated_date: latestDate,
         next_due_date: nextDue,
-      }).eq('id', tid);
+      } as any).eq('id', tid);
     }
-    queryClient.invalidateQueries({ queryKey: ['templates'] });
+    queryClient.invalidateQueries({ queryKey: ['recurring_templates'] });
     setGenerateOpen(false);
   };
 
@@ -172,15 +184,20 @@ export default function Dashboard() {
     if (data.cleared.length > 0) {
       await bulkUpdate.mutateAsync(data.cleared.map(c => ({
         id: c.id,
-        cleared: true,
-        cleared_date: c.cleared_date,
+        status: 'matched',
+        cleared_at: c.cleared_date,
       })));
     }
     if (data.newItems.length > 0) {
       await bulkInsert.mutateAsync(data.newItems.map(i => ({
-        ...i,
-        is_recurring: false,
-        source: i.source,
+        name: i.name,
+        expected_amount: i.amount,
+        direction: i.direction,
+        type: i.type,
+        scheduled_date: i.date,
+        status: 'cleared_manual',
+        cleared_at: i.cleared_date,
+        source: 'import_unmatched',
       })));
     }
     setCsvOpen(false);
@@ -255,7 +272,7 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-base font-medium">Outstanding payments</h2>
-          <Badge variant="payment">{filteredOutstanding.length} outstanding · −${formatCurrency(filteredOutstanding.reduce((s, t) => s + t.amount, 0))}</Badge>
+          <Badge variant="payment">{filteredOutstanding.length} outstanding · −${formatCurrency(filteredOutstanding.reduce((s, t) => s + t.expected_amount, 0))}</Badge>
         </div>
         {filteredOutstanding.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">{viewFilter === 'unmatched' ? 'No unmatched imported payments.' : 'No outstanding payments.'}</p>
@@ -275,7 +292,7 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <h2 className="text-base font-medium">Pending deposits</h2>
-          <Badge variant="deposit">{filteredPending.length} pending · +${formatCurrency(filteredPending.reduce((s, t) => s + t.amount, 0))}</Badge>
+          <Badge variant="deposit">{filteredPending.length} pending · +${formatCurrency(filteredPending.reduce((s, t) => s + t.expected_amount, 0))}</Badge>
         </div>
         {filteredPending.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">{viewFilter === 'unmatched' ? 'No unmatched imported deposits.' : 'No pending deposits.'}</p>
@@ -316,7 +333,7 @@ export default function Dashboard() {
           onOpenChange={open => setTxModal(prev => ({ ...prev, open }))}
           mode={txModal.mode}
           direction={txModal.direction}
-          initial={txModal.tx ? { id: txModal.tx.id, name: txModal.tx.name, amount: txModal.tx.amount, date: txModal.tx.date, type: txModal.tx.type } : undefined}
+          initial={txModal.tx ? { id: txModal.tx.id, name: txModal.tx.name, amount: txModal.tx.expected_amount, date: txModal.tx.scheduled_date, type: txModal.tx.type } : undefined}
           onSave={handleSaveTransaction}
           onDelete={handleDeleteTransaction}
         />

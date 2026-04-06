@@ -3,12 +3,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, todayStr } from '@/lib/format';
-import { useTransactions } from '@/hooks/use-data';
+import { useExpectedTransactions } from '@/hooks/use-data';
 
 type QuickFilter = 'all' | 'deposits' | 'unmatched';
 
 export default function History() {
-  const { data: transactions = [], isLoading } = useTransactions();
+  const { data: transactions = [], isLoading } = useExpectedTransactions();
 
   const firstOfMonth = () => {
     const d = new Date();
@@ -21,23 +21,35 @@ export default function History() {
 
   const filtered = useMemo(() => {
     return transactions
-      .filter(t => (!fromDate || t.date >= fromDate) && (!toDate || t.date <= toDate))
+      .filter(t => (!fromDate || t.scheduled_date >= fromDate) && (!toDate || t.scheduled_date <= toDate))
       .filter(t => {
         if (quickFilter === 'deposits') return t.direction === 'dep';
-        if (quickFilter === 'unmatched') return t.source === 'csv_unmatched';
+        if (quickFilter === 'unmatched') return t.source === 'import_unmatched';
         return true;
       })
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
   }, [transactions, fromDate, toDate, quickFilter]);
 
-  const totalOut = filtered.filter(t => t.direction === 'pmt').reduce((s, t) => s + t.amount, 0);
-  const totalIn = filtered.filter(t => t.direction === 'dep').reduce((s, t) => s + t.amount, 0);
+  const totalOut = filtered.filter(t => t.direction === 'pmt').reduce((s, t) => s + t.expected_amount, 0);
+  const totalIn = filtered.filter(t => t.direction === 'dep').reduce((s, t) => s + t.expected_amount, 0);
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
   }
 
   const filterLabel = quickFilter === 'deposits' ? 'deposits' : quickFilter === 'unmatched' ? 'unmatched imports' : 'transactions';
+
+  const statusLabel = (status: string) => {
+    if (status === 'outstanding') return 'pending';
+    if (status === 'cleared_manual') return 'cleared';
+    if (status === 'matched') return 'matched';
+    return status;
+  };
+
+  const statusVariant = (status: string) => {
+    if (status === 'outstanding') return 'muted' as const;
+    return 'deposit' as const;
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -89,10 +101,10 @@ export default function History() {
           <tbody>
             {filtered.map(tx => (
               <tr key={tx.id} className="border-b">
-                <td className="py-2 px-2">{tx.date}</td>
+                <td className="py-2 px-2">{tx.scheduled_date}</td>
                 <td className="py-2 px-2">
                   {tx.name}
-                  {tx.source === 'csv_unmatched' && (
+                  {tx.source === 'import_unmatched' && (
                     <Badge variant="outline" className="ml-2 text-xs bg-yellow-100 text-yellow-800 border-yellow-300">CSV</Badge>
                   )}
                 </td>
@@ -103,12 +115,12 @@ export default function History() {
                   </Badge>
                 </td>
                 <td className="py-2 px-2">
-                  <Badge variant={tx.cleared ? 'deposit' : 'muted'}>
-                    {tx.cleared ? 'cleared' : 'pending'}
+                  <Badge variant={statusVariant(tx.status)}>
+                    {statusLabel(tx.status)}
                   </Badge>
                 </td>
                 <td className={`py-2 px-2 text-right min-w-amount ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
-                  {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.amount)}
+                  {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.expected_amount)}
                 </td>
               </tr>
             ))}

@@ -2,49 +2,85 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { todayStr } from '@/lib/format';
 
-export type Transaction = {
+// ── Types ────────────────────────────────────────────────────────────────
+
+export type ExpectedTransaction = {
   id: string;
   name: string;
-  amount: number;
   direction: string;
   type: string;
-  date: string;
-  cleared: boolean;
-  cleared_date: string | null;
-  is_recurring: boolean;
-  template_id: string | null;
+  expected_amount: number;
+  scheduled_date: string;
+  status: string;
+  cleared_at: string | null;
   source: string;
+  source_batch_id: string | null;
+  recurring_template_id: string | null;
+  vendor_id: string | null;
+  check_number: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type Template = {
+// Legacy alias for easier migration
+export type Transaction = ExpectedTransaction;
+
+export type RecurringTemplate = {
   id: string;
   name: string;
-  amount: number;
   direction: string;
   type: string;
   frequency: string;
-  last_generated_date: string | null;
+  default_amount: number;
   next_due_date: string | null;
+  last_generated_date: string | null;
+  day_tolerance: number;
   is_active: boolean;
+  vendor_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export function useTransactions() {
+// Legacy alias
+export type Template = RecurringTemplate;
+
+// ── Query hooks ──────────────────────────────────────────────────────────
+
+export function useExpectedTransactions() {
   return useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['expected_transactions'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('transactions')
+        .from('expected_transactions' as any)
         .select('*')
-        .order('date', { ascending: true });
+        .order('scheduled_date', { ascending: true });
       if (error) throw error;
-      return data as Transaction[];
+      return (data ?? []) as unknown as ExpectedTransaction[];
     },
   });
 }
+
+// Legacy alias
+export const useTransactions = useExpectedTransactions;
+
+export function useRecurringTemplates() {
+  return useQuery({
+    queryKey: ['recurring_templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recurring_templates' as any)
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as unknown as RecurringTemplate[];
+    },
+  });
+}
+
+// Legacy alias
+export const useTemplates = useRecurringTemplates;
 
 export function useBankBalance() {
   return useQuery({
@@ -57,7 +93,6 @@ export function useBankBalance() {
         .maybeSingle();
       if (error) throw error;
       if (data) return data;
-      // Create a balance row for this user if none exists
       const { data: newRow, error: insertErr } = await supabase
         .from('bank_balance')
         .insert({ balance: 0 })
@@ -69,26 +104,12 @@ export function useBankBalance() {
   });
 }
 
-export function useTemplates() {
-  return useQuery({
-    queryKey: ['templates'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-      if (error) throw error;
-      return data as Template[];
-    },
-  });
-}
+// ── Mutation hooks ───────────────────────────────────────────────────────
 
 export function useUpdateBankBalance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (balance: number) => {
-      // Get the single row id first
       const { data: existing } = await supabase
         .from('bank_balance')
         .select('id')
@@ -105,117 +126,139 @@ export function useUpdateBankBalance() {
   });
 }
 
-export function useCreateTransaction() {
+export function useCreateExpectedTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (tx: {
       name: string;
-      amount: number;
+      expected_amount: number;
       direction: string;
       type: string;
-      date: string;
-      cleared?: boolean;
-      cleared_date?: string | null;
-      is_recurring?: boolean;
-      template_id?: string | null;
+      scheduled_date: string;
+      status?: string;
+      cleared_at?: string | null;
+      source?: string;
+      recurring_template_id?: string | null;
     }) => {
-      const { error } = await supabase.from('transactions').insert(tx);
+      const { error } = await supabase.from('expected_transactions' as any).insert(tx as any);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
   });
 }
 
-export function useUpdateTransaction() {
+// Legacy alias
+export const useCreateTransaction = useCreateExpectedTransaction;
+
+export function useUpdateExpectedTransaction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Transaction> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, any>) => {
       const { error } = await supabase
-        .from('transactions')
-        .update(updates)
+        .from('expected_transactions' as any)
+        .update(updates as any)
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
   });
 }
 
-export function useDeleteTransaction() {
+// Legacy alias
+export const useUpdateTransaction = useUpdateExpectedTransaction;
+
+export function useDeleteExpectedTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      const { error } = await supabase.from('expected_transactions' as any).delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
   });
 }
 
-export function useCreateTemplate() {
+// Legacy alias
+export const useDeleteTransaction = useDeleteExpectedTransaction;
+
+export function useCreateRecurringTemplate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (t: {
       name: string;
-      amount: number;
+      default_amount: number;
       direction: string;
       type: string;
       frequency: string;
+      next_due_date?: string | null;
     }) => {
-      const { error } = await supabase.from('templates').insert(t);
+      const { error } = await supabase.from('recurring_templates' as any).insert(t as any);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['templates'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring_templates'] }),
   });
 }
 
-export function useUpdateTemplate() {
+// Legacy alias
+export const useCreateTemplate = useCreateRecurringTemplate;
+
+export function useUpdateRecurringTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Template> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, any>) => {
       const { error } = await supabase
-        .from('templates')
-        .update(updates)
+        .from('recurring_templates' as any)
+        .update(updates as any)
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['templates'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring_templates'] }),
   });
 }
 
-export function useBulkInsertTransactions() {
+// Legacy alias
+export const useUpdateTemplate = useUpdateRecurringTemplate;
+
+export function useBulkInsertExpectedTransactions() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (txs: Array<{
       name: string;
-      amount: number;
+      expected_amount: number;
       direction: string;
       type: string;
-      date: string;
-      cleared?: boolean;
-      cleared_date?: string | null;
-      is_recurring?: boolean;
-      template_id?: string | null;
+      scheduled_date: string;
+      status?: string;
+      cleared_at?: string | null;
       source?: string;
+      recurring_template_id?: string | null;
+      source_batch_id?: string | null;
     }>) => {
-      const { error } = await supabase.from('transactions').insert(txs);
+      const { error } = await supabase.from('expected_transactions' as any).insert(txs as any);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
   });
 }
 
-export function useBulkUpdateTransactions() {
+// Legacy alias
+export const useBulkInsertTransactions = useBulkInsertExpectedTransactions;
+
+export function useBulkUpdateExpectedTransactions() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (updates: Array<{ id: string; cleared: boolean; cleared_date: string | null }>) => {
+    mutationFn: async (updates: Array<{ id: string; status: string; cleared_at: string | null }>) => {
       for (const u of updates) {
         const { error } = await supabase
-          .from('transactions')
-          .update({ cleared: u.cleared, cleared_date: u.cleared_date })
+          .from('expected_transactions' as any)
+          .update({ status: u.status, cleared_at: u.cleared_at } as any)
           .eq('id', u.id);
         if (error) throw error;
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
   });
 }
+
+// Legacy alias
+export const useBulkUpdateTransactions = useBulkUpdateExpectedTransactions;

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/format';
-import type { Template } from '@/hooks/use-data';
+import type { RecurringTemplate } from '@/hooks/use-data';
 
 type PendingItem = {
   templateId: string;
@@ -18,10 +18,9 @@ type PendingItem = {
   approved: boolean;
 };
 
-function getOccurrences(template: Template, today: Date): string[] {
+function getOccurrences(template: RecurringTemplate, today: Date): string[] {
   const dates: string[] = [];
 
-  // Use next_due_date as the anchor; fall back to advancing from last_generated_date or created_at
   const addPeriod = (d: Date): Date => {
     const next = new Date(d);
     if (template.frequency === 'weekly') {
@@ -29,7 +28,6 @@ function getOccurrences(template: Template, today: Date): string[] {
     } else if (template.frequency === 'monthly') {
       next.setMonth(next.getMonth() + 1);
     } else {
-      // quarterly: next Jan 1, Apr 1, Jul 1, Oct 1
       const quarters = [0, 3, 6, 9];
       const curMonth = next.getMonth();
       const nextQ = quarters.find(q => q > curMonth);
@@ -48,18 +46,14 @@ function getOccurrences(template: Template, today: Date): string[] {
   let cursor: Date;
 
   if (template.next_due_date) {
-    // Start from the explicitly set next due date
     cursor = new Date(template.next_due_date + 'T00:00:00');
   } else if (template.last_generated_date) {
-    // Advance one period from last generation
     const start = new Date(template.last_generated_date + 'T00:00:00');
     cursor = addPeriod(start);
   } else {
-    // No due date and never generated — nothing to generate
     return dates;
   }
 
-  // Collect all occurrences up to and including today
   while (cursor <= today) {
     dates.push(cursor.toISOString().split('T')[0]);
     cursor = addPeriod(cursor);
@@ -71,7 +65,7 @@ function getOccurrences(template: Template, today: Date): string[] {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  templates: Template[];
+  templates: RecurringTemplate[];
   onApply: (items: Array<{ name: string; amount: number; direction: string; type: string; date: string; template_id: string }>) => void;
 };
 
@@ -89,7 +83,7 @@ export function GenerateRecurringModal({ open, onOpenChange, templates, onApply 
           direction: t.direction,
           type: t.type,
           frequency: t.frequency,
-          amount: t.amount,
+          amount: t.default_amount,
           date,
           approved: true,
         });
@@ -125,7 +119,6 @@ export function GenerateRecurringModal({ open, onOpenChange, templates, onApply 
     onApply(approved);
   };
 
-  // Build summary text
   const summary = useMemo(() => {
     if (items.length === 0) return 'No recurring transactions are due.';
     const groups: Record<string, number> = {};
