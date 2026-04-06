@@ -123,6 +123,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
   const [batchId, setBatchId] = useState<string | null>(null);
   const [importRowIds, setImportRowIds] = useState<string[]>([]);
   const [matchResultsCache, setMatchResultsCache] = useState<Array<{ bankRowIndex: number; status: string; candidateId?: string; confidence?: string; daysDifference?: number | null; amountDifference?: number | null }>>([]);
+  // Maps nonDupe index → original bankRows index (which corresponds to importRowIds index)
+  const [nonDupeToOriginalMap, setNonDupeToOriginalMap] = useState<number[]>([]);
 
   // Import persistence hooks
   const createBatch = useCreateImportBatch();
