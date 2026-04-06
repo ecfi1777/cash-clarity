@@ -34,12 +34,15 @@ type MatchedRow = CSVRow & {
   confidence: 'exact' | 'close' | 'amount';
   daysDiff: number;
   selected: boolean;
+  bankImportRowId: string;
+  amountDifference: number | null;
 };
 
 type NewRow = CSVRow & {
   selected: boolean;
   editedDescription: string;
   type: string;
+  bankImportRowId: string;
 };
 
 type Props = {
