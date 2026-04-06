@@ -234,6 +234,7 @@ export default function History() {
             <tr className="border-b">
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Date</th>
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Description</th>
+              <th className="text-left py-2 px-2 font-medium text-muted-foreground">Source</th>
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Type</th>
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Direction</th>
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Status</th>
@@ -265,11 +266,8 @@ export default function History() {
                           )}
                         </div>
                       </div>
-                      {tx.source === 'import_unmatched' && (
-                        <Badge variant="outline" className="ml-2 text-xs bg-yellow-100 text-yellow-800 border-yellow-300">CSV</Badge>
-                      )}
                     </td>
-                    <td className="py-2 px-2"><Badge variant="muted">{tx.type}</Badge></td>
+                    <td className="py-2 px-2 text-xs text-muted-foreground">{getSource(tx)}</td>
                     <td className="py-2 px-2">
                       <Badge variant={tx.direction === 'pmt' ? 'payment' : 'deposit'}>
                         {tx.direction === 'pmt' ? 'payment' : 'deposit'}
