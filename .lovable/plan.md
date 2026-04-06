@@ -1,109 +1,101 @@
 
 
-# Add Description Search + Secondary Description Support
+# Add CSV Export to History Page
 
-## Change 1 — Database migration
+## File: `src/pages/History.tsx`
 
-```sql
-ALTER TABLE expected_transactions ADD COLUMN secondary_description text;
-```
+### 1. Add helper functions (before the component, ~line 10)
 
-## Change 2 — `src/hooks/use-data.ts`
-
-Add `secondary_description: string | null;` to `ExpectedTransaction` type (after `notes`, line 21).
-
-The query uses `select('*')`, which should include the new column. Verify that `secondary_description` is present in the returned data by inspecting the query result. If not, update the select path accordingly.
-
-## Change 3 — `src/pages/History.tsx`
-
-### State (after line 24)
-
+**`toCSVValue`** — normalizes any value to string:
 ```typescript
-const [descriptionQuery, setDescriptionQuery] = useState('');
-const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null);
-const [editingSecondary, setEditingSecondary] = useState('');
+function toCSVValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
 ```
 
-### Imports
-
-Add: `useUpdateExpectedTransaction` from `@/hooks/use-data`, `toast` from `sonner`, `ChevronDown` / `ChevronRight` from `lucide-react`.
-
-### Filter logic
-
-Insert after the amount `.filter()` (line 45), before `.sort()`:
-
+**`escapeCSV`** — wraps fields with commas/quotes/newlines:
 ```typescript
-.filter(t => {
-  const q = descriptionQuery.trim().toLowerCase();
-  if (!q) return true;
-  const primary = (t.name ?? '').toLowerCase();
-  const secondary = (t.secondary_description ?? '').toLowerCase();
-  return primary.includes(q) || secondary.includes(q);
-})
+function escapeCSV(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
 ```
 
-Add `descriptionQuery` to dependency array.
+**`formatExportDate`** — consistent ISO date:
+```typescript
+function formatExportDate(d: string | null): string {
+  if (!d) return '';
+  try { return new Date(d).toISOString().split('T')[0]; }
+  catch { return d; }
+}
+```
 
-### UI — Description search input
+**`getSource`** — human-readable source:
+```typescript
+function getSource(tx: ExpectedTransaction): string {
+  if (tx.source === 'import_unmatched') return 'CSV';
+  if (tx.recurring_template_id) return 'Recurring';
+  return tx.source ?? '';
+}
+```
 
-Add in the date filter row (line 89 flex container), as a third item:
+### 2. Add `handleExport` function inside the component (~after `handleSaveSecondary`)
+
+- Headers: `['Transaction ID', 'Date', 'Primary Description', 'Secondary Description', 'Signed Amount', 'Direction', 'Type', 'Status', 'Source', 'Cleared At', 'Source Batch ID']`
+- Row mapping for each `tx` in `filtered`:
+  - ID: `tx.id`
+  - Date: `formatExportDate(tx.scheduled_date)`
+  - Primary Description: `tx.name`
+  - Secondary Description: `tx.secondary_description`
+  - Signed Amount: `tx.direction === 'pmt' ? -Math.abs(tx.expected_amount) : Math.abs(tx.expected_amount)`
+  - Direction: `tx.direction === 'pmt' ? 'payment' : 'deposit'`
+  - Type, Status: as-is
+  - Source: `getSource(tx)`
+  - Cleared At: `formatExportDate(tx.cleared_at)`
+  - Source Batch ID: `tx.source_batch_id`
+- All values go through `escapeCSV(toCSVValue(...))`
+- Prepend BOM (`'\uFEFF'`) for Excel compatibility
+- Create Blob, trigger download via temporary `<a>` element
+- Filename: `history-export-YYYY-MM-DD.csv`
+
+### 3. Add Export CSV button (around line 160, next to the summary text)
+
+Wrap the existing summary `<p>` in a flex row with the button:
 
 ```tsx
-<div className="space-y-1">
-  <label className="text-xs text-muted-foreground">Description</label>
-  <Input type="text" placeholder="Search description"
-    value={descriptionQuery} onChange={e => setDescriptionQuery(e.target.value)}
-    className="w-48 h-8" />
+<div className="flex items-center justify-between">
+  <p className="text-sm text-muted-foreground">
+    {filtered.length} {filterLabel} · ...
+  </p>
+  <Button size="sm" variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
+    Export CSV
+  </Button>
 </div>
 ```
 
-### UI — Expandable check rows
+Button is disabled when zero rows are showing.
 
-In the table body (line 134), for each `tx`:
+### Import additions
 
-1. **Description cell**: If `tx.type === 'Check'`, prepend a chevron icon button that toggles expand/collapse. Below primary name, if `tx.secondary_description` is non-empty, show it in `text-xs text-muted-foreground`.
+Add `ExpectedTransaction` import from `@/hooks/use-data` (already importing hooks from there).
 
-2. **Expanded row**: If `expandedCheckId === tx.id`, render an additional `<tr>` below with `<td colSpan={6}>` containing:
-   - `<Input>` bound to `editingSecondary`
-   - "Save" `<Button size="sm">`
+## Scope
 
-3. **Toggle logic**: Click chevron → if already expanded, collapse (null + clear `editingSecondary`); otherwise expand (set id + set `editingSecondary` to `tx.secondary_description ?? ''`).
+Only `src/pages/History.tsx` is modified.
 
-4. **Save logic**:
-   ```typescript
-   const cleaned = editingSecondary.trim();
-   updateTx.mutate(
-     { id: tx.id, secondary_description: cleaned === '' ? null : cleaned },
-     {
-       onSuccess: () => { toast.success('Saved'); setExpandedCheckId(null); setEditingSecondary(''); },
-       onError: () => { toast.error('Failed to save'); }
-     }
-   );
-   ```
-   - Trim input before saving
-   - Store NULL instead of empty string
-   - On success: toast, collapse, clear state
-   - On error: toast, keep row open
+## Summary
 
-### Check detection
-
-`tx.type === 'Check'` — matches existing Badge display.
-
-## Edge cases
-
-- Empty search → no filtering
-- Case-insensitive partial match on either field
-- Null secondary_description treated as empty
-- Blank input saved as NULL
-- Whitespace-only input normalized to NULL
-- Only check rows get expand/edit affordance
-- Non-check rows unaffected
-
-## Files changed
-
-| File | Change |
-|------|--------|
-| Migration | `ALTER TABLE expected_transactions ADD COLUMN secondary_description text` |
-| `src/hooks/use-data.ts` | Add `secondary_description` to `ExpectedTransaction` type |
-| `src/pages/History.tsx` | Description search input + filter, expandable check row editor with trim-to-null save |
+| Detail | Value |
+|--------|-------|
+| Export source | `filtered` array (all active filters applied) |
+| Columns | 11 columns in specified order |
+| Signed amount | Explicit: `-Math.abs()` for pmt, `+Math.abs()` for dep |
+| Date format | ISO `YYYY-MM-DD` |
+| Null handling | `toCSVValue` converts to empty string |
+| Source mapping | `CSV` / `Recurring` / raw value |
+| Excel compat | BOM prepended |
+| Zero rows | Button disabled |
 
