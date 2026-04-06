@@ -384,23 +384,16 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       source_batch_id: batchId,
     }));
 
-    // Build matchRecords — map matched rows to their import row IDs
-    const matchRecords = selectedMatched.map(r => {
-      const matchResult = matchResultsCache.find(mr => mr.candidateId === r.transactionId);
-      // matchResult.bankRowIndex is the nonDupe index. Use nonDupeToOriginalMap to get
-      // the original bankRows index, which maps 1:1 to importRowIds.
-      const nonDupeIdx = matchResult?.bankRowIndex ?? 0;
-      const originalIdx = nonDupeToOriginalMap[nonDupeIdx] ?? 0;
-      return {
-        batch_id: batchId,
-        bank_import_row_id: importRowIds[originalIdx] ?? importRowIds[0],
-        expected_transaction_id: r.transactionId,
-        match_status: 'confirmed',
-        match_confidence: r.confidence,
-        days_difference: r.daysDiff,
-        amount_difference: 0,
-      };
-    });
+    // Build matchRecords using direct bankImportRowId from matched rows
+    const matchRecords = selectedMatched.map(r => ({
+      batch_id: batchId,
+      bank_import_row_id: r.bankImportRowId,
+      expected_transaction_id: r.transactionId,
+      match_status: 'confirmed',
+      match_confidence: r.confidence,
+      days_difference: r.daysDiff,
+      amount_difference: r.amountDifference ?? 0,
+    }));
 
     // Build changeLog with real before_state from transactions prop
     const changeLog = selectedMatched.map(r => {
