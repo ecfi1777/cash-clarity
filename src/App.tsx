@@ -36,6 +36,8 @@ const AppRoutes = () => {
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/recurring" element={<ProtectedRoute><Recurring /></ProtectedRoute>} />
+        <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
+        <Route path="/imports/:batchId" element={<ProtectedRoute><ImportDetail /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
