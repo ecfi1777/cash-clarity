@@ -169,6 +169,27 @@ export function useImportBatchMatches(batchId: string | undefined) {
   });
 }
 
+export function useImportBatchAdjustments(batchId: string | undefined) {
+  return useQuery({
+    queryKey: ['import_batch_adjustments', batchId],
+    enabled: !!batchId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transaction_adjustments' as any)
+        .select('*')
+        .eq('batch_id', batchId!);
+      if (error) throw error;
+      return (data ?? []) as unknown as Array<{
+        id: string;
+        batch_id: string;
+        transaction_match_id: string;
+      }>;
+    },
+  });
+}
+
+
+
 // ── Mutation hooks ───────────────────────────────────────────────────────
 
 export function useCreateImportBatch() {

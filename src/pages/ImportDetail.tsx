@@ -4,6 +4,8 @@ import {
   useImportBatchDetail,
   useImportBatchRows,
   useImportBatchChangeLog,
+  useImportBatchMatches,
+  useImportBatchAdjustments,
   useRollbackBatch,
 } from '@/hooks/use-import';
 import { Badge } from '@/components/ui/badge';
@@ -63,14 +65,23 @@ export default function ImportDetail() {
   const { data: batch, isLoading: batchLoading } = useImportBatchDetail(batchId);
   const { data: rows = [] } = useImportBatchRows(batchId);
   const { data: changeLog = [] } = useImportBatchChangeLog(batchId);
+  const { data: matches = [] } = useImportBatchMatches(batchId);
+  const { data: adjustments = [] } = useImportBatchAdjustments(batchId);
   const rollback = useRollbackBatch();
 
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [rollbackNotes, setRollbackNotes] = useState('');
 
-  const matchedRows = rows.filter(r => r.review_status === 'applied' && r.suggested_match_confidence && !r.suggested_amount_difference);
-  const partialRows = rows.filter(r => r.review_status === 'applied' && r.suggested_amount_difference && r.suggested_amount_difference > 0);
-  const unmatchedRows = rows.filter(r => r.review_status === 'applied' && !r.suggested_match_id);
+  // Build sets for classification from persisted match/adjustment data
+  const matchedRowIds = new Set(matches.map(m => m.bank_import_row_id));
+  const adjustmentMatchIds = new Set(adjustments.map(a => a.transaction_match_id));
+  const partialRowIds = new Set(
+    matches.filter(m => adjustmentMatchIds.has(m.id)).map(m => m.bank_import_row_id)
+  );
+
+  const matchedRows = rows.filter(r => matchedRowIds.has(r.id) && !partialRowIds.has(r.id));
+  const partialRows = rows.filter(r => partialRowIds.has(r.id));
+  const unmatchedRows = rows.filter(r => r.review_status === 'applied' && !matchedRowIds.has(r.id) && !r.is_duplicate);
   const dupeRows = rows.filter(r => r.is_duplicate);
 
   const handleRollback = async () => {
