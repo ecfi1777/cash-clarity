@@ -6,6 +6,31 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { formatCurrency, todayStr } from '@/lib/format';
 import { useExpectedTransactions, useUpdateExpectedTransaction } from '@/hooks/use-data';
 import { toast } from 'sonner';
+import type { ExpectedTransaction } from '@/hooks/use-data';
+
+function toCSVValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+function escapeCSV(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function formatExportDate(d: string | null): string {
+  if (!d) return '';
+  try { return new Date(d).toISOString().split('T')[0]; }
+  catch { return d; }
+}
+
+function getSource(tx: ExpectedTransaction): string {
+  if (tx.source === 'import_unmatched') return 'CSV';
+  if (tx.recurring_template_id) return 'Recurring';
+  return tx.source ?? '';
+}
 
 type QuickFilter = 'all' | 'deposits' | 'unmatched';
 
@@ -107,6 +132,42 @@ export default function History() {
     );
   };
 
+  const handleExport = () => {
+    const headers = [
+      'Transaction ID', 'Date', 'Primary Description', 'Secondary Description',
+      'Signed Amount', 'Direction', 'Type', 'Status', 'Source', 'Cleared At', 'Source Batch ID',
+    ];
+    const rows = filtered.map(tx => {
+      const signedAmount = tx.direction === 'pmt'
+        ? -Math.abs(tx.expected_amount)
+        : Math.abs(tx.expected_amount);
+      return [
+        tx.id,
+        formatExportDate(tx.scheduled_date),
+        tx.name,
+        tx.secondary_description,
+        signedAmount,
+        tx.direction === 'pmt' ? 'payment' : 'deposit',
+        tx.type,
+        tx.status,
+        getSource(tx),
+        formatExportDate(tx.cleared_at),
+        tx.source_batch_id,
+      ].map(v => escapeCSV(toCSVValue(v))).join(',');
+    });
+    const csvString = [headers.join(','), ...rows].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `history-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-lg font-medium">History</h1>
@@ -157,9 +218,14 @@ export default function History() {
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        {filtered.length} {filterLabel} · <span className="text-payment">−${formatCurrency(totalOut)} out</span> · <span className="text-deposit">+${formatCurrency(totalIn)} in</span>
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} {filterLabel} · <span className="text-payment">−${formatCurrency(totalOut)} out</span> · <span className="text-deposit">+${formatCurrency(totalIn)} in</span>
+        </p>
+        <Button size="sm" variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
+          Export CSV
+        </Button>
+      </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
