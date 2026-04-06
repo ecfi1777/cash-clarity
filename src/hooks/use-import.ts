@@ -187,28 +187,8 @@ export function useImportBatchAdjustments(batchId: string | undefined) {
     },
   });
 }
-  return useQuery({
-    queryKey: ['import_batch_matches', batchId],
-    enabled: !!batchId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transaction_matches' as any)
-        .select('*')
-        .eq('batch_id', batchId!);
-      if (error) throw error;
-      return (data ?? []) as unknown as Array<{
-        id: string;
-        batch_id: string;
-        bank_import_row_id: string;
-        expected_transaction_id: string;
-        match_status: string;
-        match_confidence: string;
-        days_difference: number | null;
-        amount_difference: number | null;
-      }>;
-    },
-  });
-}
+
+
 
 // ── Mutation hooks ───────────────────────────────────────────────────────
 
