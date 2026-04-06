@@ -6,6 +6,31 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { formatCurrency, todayStr } from '@/lib/format';
 import { useExpectedTransactions, useUpdateExpectedTransaction } from '@/hooks/use-data';
 import { toast } from 'sonner';
+import type { ExpectedTransaction } from '@/hooks/use-data';
+
+function toCSVValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+function escapeCSV(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function formatExportDate(d: string | null): string {
+  if (!d) return '';
+  try { return new Date(d).toISOString().split('T')[0]; }
+  catch { return d; }
+}
+
+function getSource(tx: ExpectedTransaction): string {
+  if (tx.source === 'import_unmatched') return 'CSV';
+  if (tx.recurring_template_id) return 'Recurring';
+  return tx.source ?? '';
+}
 
 type QuickFilter = 'all' | 'deposits' | 'unmatched';
 
