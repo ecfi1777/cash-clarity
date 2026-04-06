@@ -7,33 +7,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RecurringModal } from '@/components/RecurringModal';
 import { formatCurrency } from '@/lib/format';
 import {
-  useTemplates,
-  useCreateTemplate,
-  useUpdateTemplate,
-  type Template,
+  useRecurringTemplates,
+  useCreateRecurringTemplate,
+  useUpdateRecurringTemplate,
+  type RecurringTemplate,
 } from '@/hooks/use-data';
 import { Pencil, X, Plus, Check } from 'lucide-react';
 
 export default function Recurring() {
-  const { data: templates = [], isLoading } = useTemplates();
-  const createTemplate = useCreateTemplate();
-  const updateTemplate = useUpdateTemplate();
+  const { data: templates = [], isLoading } = useRecurringTemplates();
+  const createTemplate = useCreateRecurringTemplate();
+  const updateTemplate = useUpdateRecurringTemplate();
 
   const [addModal, setAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<Template>>({});
+  const [editValues, setEditValues] = useState<Partial<RecurringTemplate>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const handleAddSave = (data: { name: string; amount: number; direction: string; type: string; frequency: string; next_due_date: string | null }) => {
-    createTemplate.mutate(data);
+    createTemplate.mutate({ ...data, default_amount: data.amount });
     setAddModal(false);
   };
 
-  const startEdit = (t: Template) => {
+  const startEdit = (t: RecurringTemplate) => {
     setEditingId(t.id);
     setEditValues({
       name: t.name,
-      amount: t.amount,
+      default_amount: t.default_amount,
       direction: t.direction,
       type: t.type,
       frequency: t.frequency,
@@ -51,7 +51,7 @@ export default function Recurring() {
     updateTemplate.mutate({
       id: editingId,
       name: editValues.name,
-      amount: editValues.amount,
+      default_amount: editValues.default_amount,
       direction: editValues.direction,
       type: editValues.type,
       frequency: editValues.frequency,
@@ -155,8 +155,8 @@ export default function Recurring() {
                         type="number"
                         step="0.01"
                         min="0.01"
-                        value={editValues.amount ?? ''}
-                        onChange={e => setEditValues(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                        value={editValues.default_amount ?? ''}
+                        onChange={e => setEditValues(prev => ({ ...prev, default_amount: parseFloat(e.target.value) || 0 }))}
                         className="h-8 w-28 text-right"
                       />
                     </td>
@@ -193,7 +193,7 @@ export default function Recurring() {
                   <td className="py-2 px-2">{t.name}</td>
                   <td className="py-2 px-2"><Badge variant="muted">{t.type}</Badge></td>
                   <td className={`py-2 px-2 text-right min-w-amount ${t.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
-                    {t.direction === 'pmt' ? '−' : '+'}${formatCurrency(t.amount)}
+                    {t.direction === 'pmt' ? '−' : '+'}${formatCurrency(t.default_amount)}
                   </td>
                   <td className="py-2 px-2 text-sm text-muted-foreground">
                     {t.next_due_date ?? '—'}
