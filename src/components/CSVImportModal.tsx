@@ -237,7 +237,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     // Filter out duplicates and build nonDupe→original index map
     const nonDupeBankRows: BankRow[] = [];
     const nonDupeParsed: CSVRow[] = [];
-    const ndToOrigMap: number[] = [];
+    const ndToOrigMap: number[] = []; // nonDupe index → original bankRows index
     let dupCount = 0;
     for (let i = 0; i < bankRows.length; i++) {
       if (dupeSet.has(i)) {
@@ -245,10 +245,9 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       } else {
         nonDupeBankRows.push({ ...bankRows[i], index: nonDupeBankRows.length });
         nonDupeParsed.push(parsed[i]);
-        ndToOrigMap.push(i); // nonDupe index → original bankRows index
+        ndToOrigMap.push(i);
       }
     }
-    setNonDupeToOriginalMap(ndToOrigMap);
 
     setDuplicateCount(dupCount);
 
@@ -263,42 +262,10 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     }));
 
     const matchResults = findMatches(nonDupeBankRows, candidates, []);
-    setMatchResultsCache(matchResults);
 
-    const matched: MatchedRow[] = [];
-    const unmatched: CSVRow[] = [];
-
-    for (const result of matchResults) {
-      const csvRow = nonDupeParsed[result.bankRowIndex];
-      if (result.status === 'matched' || result.status === 'partial_match') {
-        const tx = outstanding.find(t => t.id === result.candidateId);
-        if (tx) {
-          matched.push({
-            ...csvRow,
-            transactionId: tx.id,
-            transactionName: tx.name,
-            transactionDate: tx.scheduled_date,
-            confidence: result.daysDifference === 0 ? 'exact' : (result.daysDifference ?? 99) <= 3 ? 'close' : 'amount',
-            daysDiff: result.daysDifference ?? 0,
-            selected: true,
-          });
-        } else {
-          unmatched.push(csvRow);
-        }
-      } else {
-        unmatched.push(csvRow);
-      }
-    }
-
-    setMatchedRows(matched);
-    setNewRows(unmatched.map(r => ({
-      ...r,
-      selected: true,
-      editedDescription: r.description,
-      type: 'ACH',
-    })));
-
-    // Persist batch and rows to database
+    // Persist batch and rows to database FIRST so we get IDs
+    let insertedRowIds: string[] = [];
+    let createdBatchId: string | null = null;
     try {
       const batchName = fileName || 'import.csv';
       const batch = await createBatch.mutateAsync({
@@ -307,13 +274,11 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       });
 
       if (batch) {
+        createdBatchId = batch.id;
         const importRows = bankRows.map((br, i) => {
           const isDupe = dupeSet.has(i);
-          const matchResult = !isDupe ? matchResults.find(mr => {
-            // Map back to non-dupe index
-            const nonDupeIdx = nonDupeBankRows.findIndex(ndb => ndb.rawDescription === br.rawDescription && ndb.postedDate === br.postedDate && ndb.amount === br.amount);
-            return mr.bankRowIndex === nonDupeIdx;
-          }) : null;
+          const nonDupeIdx = ndToOrigMap.indexOf(i);
+          const matchResult = (!isDupe && nonDupeIdx >= 0) ? matchResults.find(mr => mr.bankRowIndex === nonDupeIdx) : null;
 
           return {
             batch_id: batch.id,
@@ -335,12 +300,51 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
         });
 
         const insertedRowData = await insertRows.mutateAsync(importRows);
-        setImportRowIds(insertedRowData.map(r => r.id));
+        insertedRowIds = insertedRowData.map(r => r.id);
         setBatchId(batch.id);
       }
     } catch (err) {
       console.error('Failed to persist import batch:', err);
     }
+
+    // Now build matched/new rows WITH direct bankImportRowId from inserted rows
+    const matched: MatchedRow[] = [];
+    const unmatched: Array<CSVRow & { bankImportRowId: string }> = [];
+
+    for (const result of matchResults) {
+      const csvRow = nonDupeParsed[result.bankRowIndex];
+      const originalIdx = ndToOrigMap[result.bankRowIndex];
+      const bankImportRowId = insertedRowIds[originalIdx] ?? '';
+
+      if (result.status === 'matched' || result.status === 'partial_match') {
+        const tx = outstanding.find(t => t.id === result.candidateId);
+        if (tx) {
+          matched.push({
+            ...csvRow,
+            transactionId: tx.id,
+            transactionName: tx.name,
+            transactionDate: tx.scheduled_date,
+            confidence: result.daysDifference === 0 ? 'exact' : (result.daysDifference ?? 99) <= 3 ? 'close' : 'amount',
+            daysDiff: result.daysDifference ?? 0,
+            selected: true,
+            bankImportRowId,
+            amountDifference: result.amountDifference ?? null,
+          });
+        } else {
+          unmatched.push({ ...csvRow, bankImportRowId });
+        }
+      } else {
+        unmatched.push({ ...csvRow, bankImportRowId });
+      }
+    }
+
+    setMatchedRows(matched);
+    setNewRows(unmatched.map(r => ({
+      ...r,
+      selected: true,
+      editedDescription: r.description,
+      type: 'ACH',
+    })));
 
     setStep(1);
   }, [transactions, existingFingerprints, createBatch, insertRows]);
