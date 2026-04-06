@@ -113,7 +113,7 @@ export function useInsertImportRows() {
     }>) => {
       const { data, error } = await supabase.from('bank_import_rows' as any).insert(rows as any).select('id');
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string }>;
+      return (data ?? []) as unknown as Array<{ id: string }>;
     },
   });
 }
