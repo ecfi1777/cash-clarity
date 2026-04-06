@@ -177,31 +177,6 @@ export default function Dashboard() {
     setGenerateOpen(false);
   };
 
-  const handleCSVApply = async (data: {
-    cleared: Array<{ id: string; cleared_date: string }>;
-    newItems: Array<{ name: string; amount: number; direction: string; type: string; date: string; cleared: boolean; cleared_date: string; source: string }>;
-  }) => {
-    if (data.cleared.length > 0) {
-      await bulkUpdate.mutateAsync(data.cleared.map(c => ({
-        id: c.id,
-        status: 'matched',
-        cleared_at: c.cleared_date,
-      })));
-    }
-    if (data.newItems.length > 0) {
-      await bulkInsert.mutateAsync(data.newItems.map(i => ({
-        name: i.name,
-        expected_amount: i.amount,
-        direction: i.direction,
-        type: i.type,
-        scheduled_date: i.date,
-        status: 'cleared_manual',
-        cleared_at: i.cleared_date,
-        source: 'import_unmatched',
-      })));
-    }
-    setCsvOpen(false);
-  };
 
   if (txLoading || bbLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
@@ -355,7 +330,6 @@ export default function Dashboard() {
           open={csvOpen}
           onOpenChange={setCsvOpen}
           transactions={transactions}
-          onApply={handleCSVApply}
         />
       )}
 
