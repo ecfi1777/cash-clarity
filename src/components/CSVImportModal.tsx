@@ -28,6 +28,7 @@ import {
   type TemplateUpdate,
 } from '@/hooks/use-import';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 type CSVRow = {
   description: string;
@@ -458,6 +459,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
         adjustments: adjustments.length > 0 ? adjustments : undefined,
         templateUpdates: templateUpdates.length > 0 ? templateUpdates : undefined,
       });
+      toast.success('Import applied successfully');
       onOpenChange(false);
     } catch (err) {
       console.error('Failed to apply batch:', err);
