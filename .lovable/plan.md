@@ -1,73 +1,79 @@
 
 
-# Fix Import Persistence Error Handling + editedDescription Bug
+# Fix Duplicate Detection + Cleanup Stale Data
 
-## Changes to `src/components/CSVImportModal.tsx`
+## Change 1: `src/hooks/use-import.ts` (lines 72-87)
 
-### 1. Batch/row persistence failure — add error toast + early return (lines 263-265)
+Replace `useFetchExistingFingerprints` with a two-step filtered query:
 
-Replace:
 ```typescript
-} catch (err) {
-  console.error('Failed to persist import batch:', err);
+export function useFetchExistingFingerprints() {
+  return useQuery({
+    queryKey: ['existing_fingerprints'],
+    queryFn: async () => {
+      // Step 1: get IDs of genuinely applied batches
+      const { data: batches, error: batchErr } = await supabase
+        .from('bank_import_batches' as any)
+        .select('id')
+        .eq('status', 'applied');
+      if (batchErr) throw batchErr;
+      const batchIds = ((batches ?? []) as any[]).map((b: any) => b.id);
+      if (batchIds.length === 0) return new Set<string>();
+
+      // Step 2: only fingerprints from rows that were genuinely applied
+      const { data, error } = await supabase
+        .from('bank_import_rows' as any)
+        .select('duplicate_fingerprint')
+        .in('batch_id', batchIds)
+        .eq('is_duplicate', false)
+        .eq('selected_for_apply', true)
+        .not('applied_at', 'is', null);
+      if (error) throw error;
+
+      const fps = new Set<string>();
+      for (const row of (data ?? []) as any[]) {
+        fps.add(row.duplicate_fingerprint);
+      }
+      return fps;
+    },
+  });
 }
 ```
-With:
-```typescript
-} catch (err) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error('Failed to persist import batch:', msg, err);
-  toast.error(`Failed to create import batch: ${msg}`);
-  return;
-}
+
+Four-way filter: `batch.status='applied'` + `is_duplicate=false` + `selected_for_apply=true` + `applied_at IS NOT NULL`.
+
+## Change 2: Database cleanup
+
+Delete stale data for the two broken batches using the data insert tool:
+
+```sql
+DELETE FROM batch_change_log WHERE batch_id IN (
+  '340e6a48-c8ed-4b25-8a3e-1f3389e5c69d',
+  'e342a9bd-9b77-4cd1-8db7-30c389ffaf15'
+);
+DELETE FROM bank_import_rows WHERE batch_id IN (
+  '340e6a48-c8ed-4b25-8a3e-1f3389e5c69d',
+  'e342a9bd-9b77-4cd1-8db7-30c389ffaf15'
+);
+DELETE FROM bank_import_batches WHERE id IN (
+  '340e6a48-c8ed-4b25-8a3e-1f3389e5c69d',
+  'e342a9bd-9b77-4cd1-8db7-30c389ffaf15'
+);
 ```
 
-The `return` stops `processCSV` from proceeding to build matched/partial/unmatched state when nothing was saved. The modal stays open on the Upload step.
+## Change 3: Verification
 
-### 2. Apply failure — add error toast (lines 464-465)
+After fix + cleanup, re-import the CSV and run diagnostic queries to confirm:
+- Rows are not flagged as duplicates
+- `expected_transactions` contains `source = 'import_unmatched'` rows
+- 3 deposits have `direction = 'dep'`, positive `expected_amount`, `status = 'cleared_manual'`, non-null `source_batch_id`
 
-Replace:
-```typescript
-} catch (err) {
-  console.error('Failed to apply batch:', err);
-}
-```
-With:
-```typescript
-} catch (err) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error('Failed to apply batch:', msg, err);
-  toast.error(`Failed to apply import: ${msg}`);
-}
-```
+## Scope
 
-Modal already stays open on failure (the `onOpenChange(false)` on line 463 is skipped when the `await` throws).
+| File | Change |
+|------|--------|
+| `src/hooks/use-import.ts` | Replace lines 72-87 with four-way filtered fingerprint query |
+| Database (data cleanup) | Delete 2 stale batches + 64 bank_import_rows + change_log entries |
 
-### 3. editedDescription bug (line 390)
-
-Change:
-```typescript
-name: r.description,
-```
-To:
-```typescript
-name: r.editedDescription || r.description,
-```
-
-## Verification after implementation
-
-Run diagnostic queries to confirm:
-- `bank_import_batches` is populated
-- `bank_import_rows` is populated
-- `transaction_matches` is populated
-- `batch_change_log` is populated
-- `expected_transactions` contains rows with `source = 'import_unmatched'`
-- Deposit rows have `direction = 'dep'`, positive `expected_amount`, `status = 'cleared_manual'`, non-null `source_batch_id`
-
-## Technical details
-
-- `toast` from `sonner` is already imported (line 31)
-- Three surgical edits in one file only
-- Error messages include the actual error string to distinguish batch creation vs row insertion vs apply failures
-- Console log retains the full error object for stack trace debugging
+No other files modified.
 
