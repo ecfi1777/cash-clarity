@@ -1,45 +1,73 @@
 
 
-# Fix ImportDetail Tab Classification and Add Apply Success Toast
+# Fix Import Persistence Error Handling + editedDescription Bug
 
-## Problem
-1. `ImportDetail.tsx` lines 71-74 classify rows using heuristic field checks (`suggested_match_confidence`, `suggested_amount_difference`, `suggested_match_id`) instead of persisted match/adjustment data.
-2. No success toast after apply completes in `CSVImportModal.tsx` (line 461 just closes the dialog silently).
+## Changes to `src/components/CSVImportModal.tsx`
 
-## Changes
+### 1. Batch/row persistence failure — add error toast + early return (lines 263-265)
 
-### 1. `src/pages/ImportDetail.tsx` — Tab classification using persisted data
-
-Replace the current heuristic filtering (lines 71-74) with a join-based approach:
-
-- Import `useImportBatchMatches` (already exported from `use-import.ts`)
-- Query `transaction_matches` for the batch to get the set of `bank_import_row_id` values and their `amount_difference`
-- Query `transaction_adjustments` for the batch (add a new simple query hook or inline query) to identify partial match rows
-
-**Tab classification logic:**
-- **Matched tab**: rows whose `id` appears in `transaction_matches` AND do NOT have a corresponding `transaction_adjustments` entry
-- **Partial tab**: rows whose `id` appears in `transaction_matches` AND have a corresponding `transaction_adjustments` entry
-- **Unmatched tab**: rows with `review_status = 'applied'` whose `id` does NOT appear in `transaction_matches` (these are the inserted new transactions)
-- **Duplicates tab**: rows where `is_duplicate = true` (unchanged — this is persisted data, not a heuristic)
-
-### 2. `src/hooks/use-import.ts` — Add `useImportBatchAdjustments` query
-
-New query hook fetching `transaction_adjustments` for a batch, returning `{ id, batch_id, transaction_match_id, bank_import_row_id }` (need to join through matches to get `bank_import_row_id`, or just return `transaction_match_id` and cross-reference with matches data already fetched).
-
-Simpler approach: fetch adjustments by `batch_id`, each has `transaction_match_id`. Cross-reference with the matches query (which has `bank_import_row_id`) to determine which rows are partial.
-
-### 3. `src/components/CSVImportModal.tsx` — Add success toast
-
-After line 460 (successful `applyBatch.mutateAsync`), add:
+Replace:
 ```typescript
-toast.success('Import applied successfully');
+} catch (err) {
+  console.error('Failed to persist import batch:', err);
+}
 ```
-The `toast` import from `sonner` is already present in `CSVImportModal.tsx` (used elsewhere — need to verify, otherwise add import).
+With:
+```typescript
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error('Failed to persist import batch:', msg, err);
+  toast.error(`Failed to create import batch: ${msg}`);
+  return;
+}
+```
 
-Actually, checking the imports at line 1-30: `toast` from `sonner` is not imported in CSVImportModal. Will add `import { toast } from 'sonner';`.
+The `return` stops `processCSV` from proceeding to build matched/partial/unmatched state when nothing was saved. The modal stays open on the Upload step.
 
-## Files Modified
-- `src/pages/ImportDetail.tsx` — use `useImportBatchMatches` + new adjustments query for tab classification
-- `src/hooks/use-import.ts` — add `useImportBatchAdjustments` query hook
-- `src/components/CSVImportModal.tsx` — add sonner import + success toast after apply
+### 2. Apply failure — add error toast (lines 464-465)
+
+Replace:
+```typescript
+} catch (err) {
+  console.error('Failed to apply batch:', err);
+}
+```
+With:
+```typescript
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error('Failed to apply batch:', msg, err);
+  toast.error(`Failed to apply import: ${msg}`);
+}
+```
+
+Modal already stays open on failure (the `onOpenChange(false)` on line 463 is skipped when the `await` throws).
+
+### 3. editedDescription bug (line 390)
+
+Change:
+```typescript
+name: r.description,
+```
+To:
+```typescript
+name: r.editedDescription || r.description,
+```
+
+## Verification after implementation
+
+Run diagnostic queries to confirm:
+- `bank_import_batches` is populated
+- `bank_import_rows` is populated
+- `transaction_matches` is populated
+- `batch_change_log` is populated
+- `expected_transactions` contains rows with `source = 'import_unmatched'`
+- Deposit rows have `direction = 'dep'`, positive `expected_amount`, `status = 'cleared_manual'`, non-null `source_batch_id`
+
+## Technical details
+
+- `toast` from `sonner` is already imported (line 31)
+- Three surgical edits in one file only
+- Error messages include the actual error string to distinguish batch creation vs row insertion vs apply failures
+- Console log retains the full error object for stack trace debugging
 
