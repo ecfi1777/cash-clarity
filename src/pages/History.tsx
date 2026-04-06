@@ -176,7 +176,7 @@ export default function History() {
           </thead>
           <tbody>
             {filtered.map(tx => {
-              const isCheck = tx.type === 'Check';
+              const isCheck = tx.type === 'Check' || !!tx.check_number || /^check\s*#?\d/i.test(tx.name);
               const isExpanded = expandedCheckId === tx.id;
               return (
                 <>
