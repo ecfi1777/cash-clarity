@@ -328,7 +328,55 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Transaction modal */}
+      {/* Recently deleted */}
+      {recentlyDeleted.length > 0 && (
+        <div>
+          <div className="border-t pt-4">
+            <h2 className="text-base font-medium mb-1">Recently deleted</h2>
+            <p className="text-xs text-muted-foreground mb-3">Restore a transaction to put it back into outstanding.</p>
+            <div className="border rounded-md overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="text-left font-normal py-2 px-3">Deleted</th>
+                    <th className="text-left font-normal py-2 px-3">Date</th>
+                    <th className="text-left font-normal py-2 px-3">Description</th>
+                    <th className="text-left font-normal py-2 px-3">Type</th>
+                    <th className="text-right font-normal py-2 px-3">Amount</th>
+                    <th className="text-right font-normal py-2 px-3 w-32">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentlyDeleted.map(tx => (
+                    <tr key={tx.id} className="border-b last:border-0">
+                      <td className="py-2 px-3 text-muted-foreground">
+                        {tx.cleared_at ? new Date(tx.cleared_at).toLocaleDateString('en-US') : '—'}
+                      </td>
+                      <td className="py-2 px-3 text-muted-foreground">{tx.scheduled_date}</td>
+                      <td className="py-2 px-3 text-muted-foreground line-through">{tx.name}</td>
+                      <td className="py-2 px-3 text-muted-foreground">{tx.type}</td>
+                      <td className={`py-2 px-3 text-right tabular-nums min-w-[90px] ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
+                        {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(Math.abs(tx.expected_amount))}
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => restoreTransaction.mutate(tx.id)}
+                          disabled={restoreTransaction.isPending}
+                        >
+                          Restore
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {txModal.open && (
         <TransactionModal
           open={txModal.open}
