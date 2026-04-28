@@ -175,7 +175,27 @@ export function useDeleteExpectedTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('expected_transactions' as any).delete().eq('id', id);
+      // Soft delete: mark status='deleted' and timestamp via cleared_at so it can be restored.
+      // Hard delete is avoided because imported transactions may be referenced
+      // by transaction_matches and other tables.
+      const { error } = await supabase
+        .from('expected_transactions' as any)
+        .update({ status: 'deleted', cleared_at: new Date().toISOString() } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
+  });
+}
+
+export function useRestoreExpectedTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('expected_transactions' as any)
+        .update({ status: 'outstanding', cleared_at: null } as any)
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['expected_transactions'] }),
