@@ -33,8 +33,8 @@ export function TransactionTable({ transactions, direction, onToggleCleared, onE
         </thead>
         <tbody>
           {transactions.map(tx => (
-            <tr key={tx.id} className={`border-b ${dimmed ? 'opacity-35' : ''}`}>
-              <td className="py-2 px-2">
+            <tr key={tx.id} className="border-b">
+              <td className={`py-2 px-2 ${dimmed ? 'opacity-50' : ''}`}>
                 {dimmed ? (
                   <span className="text-sm">{tx.scheduled_date}</span>
                 ) : (
@@ -46,21 +46,23 @@ export function TransactionTable({ transactions, direction, onToggleCleared, onE
                   />
                 )}
               </td>
-              <td className="py-2 px-2">
+              <td className={`py-2 px-2 ${dimmed ? 'opacity-50' : ''}`}>
                 <span>{tx.name}</span>
                 {tx.source === 'recurring_generated' && <Badge variant="info" className="ml-1.5 text-[10px] px-1.5 py-0">rec</Badge>}
                 {tx.source === 'import_unmatched' && <Badge variant="warning" className="ml-1.5 text-[10px] px-1.5 py-0">CSV</Badge>}
               </td>
-              <td className="py-2 px-2">
+              <td className={`py-2 px-2 ${dimmed ? 'opacity-50' : ''}`}>
                 <Badge variant="muted">{tx.type}</Badge>
               </td>
-              <td className={`py-2 px-2 text-right min-w-amount ${direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
+              <td className={`py-2 px-2 text-right min-w-amount ${direction === 'pmt' ? 'text-payment' : 'text-deposit'} ${dimmed ? 'opacity-50' : ''}`}>
                 {direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.expected_amount)}
               </td>
               <td className="py-2 px-2 text-center">
                 <button
                   onClick={() => onToggleCleared(tx.id, !isCleared(tx))}
-                  className="inline-flex items-center justify-center"
+                  className="inline-flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                  title={isCleared(tx) ? 'Restore to outstanding' : 'Mark as cleared'}
+                  aria-label={isCleared(tx) ? 'Restore to outstanding' : 'Mark as cleared'}
                 >
                   {isCleared(tx) ? (
                     <CheckCircle2 className="w-5 h-5 text-deposit" />

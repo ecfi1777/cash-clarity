@@ -1,101 +1,40 @@
+# Allow Restoring (Un-clearing) Items from "Recently cleared"
 
+## Root cause
 
-# Add CSV Export to History Page
+The cleared toggle in `TransactionTable` already supports un-clearing — clicking the green check calls `onToggleCleared(id, false)`, which sets `status: 'outstanding'` and `cleared_at: null`. So the data path works.
 
-## File: `src/pages/History.tsx`
+The problem is purely UX: in the "Recently cleared" section the entire row is rendered at 35% opacity (`dimmed`), and there is no label, tooltip, or hover affordance on the green check. Users don't realize it's clickable to restore.
 
-### 1. Add helper functions (before the component, ~line 10)
+## Changes
 
-**`toCSVValue`** — normalizes any value to string:
-```typescript
-function toCSVValue(value: any): string {
-  if (value === null || value === undefined) return '';
-  return String(value);
-}
-```
+### 1. `src/components/TransactionTable.tsx` — make the cleared toggle obvious
 
-**`escapeCSV`** — wraps fields with commas/quotes/newlines:
-```typescript
-function escapeCSV(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
-```
+- Keep the cleared button always at full opacity even when the row is `dimmed` (so the affordance stands out against muted text).
+- Add a `title` tooltip on the button: `"Restore to outstanding"` when currently cleared, `"Mark as cleared"` when outstanding.
+- Add hover styles (`hover:opacity-80 cursor-pointer`) and a focusable `aria-label`.
+- On dimmed rows, also keep the Actions column (edit/delete) at normal opacity is already fine — only adjust the cleared cell.
 
-**`formatExportDate`** — consistent ISO date:
-```typescript
-function formatExportDate(d: string | null): string {
-  if (!d) return '';
-  try { return new Date(d).toISOString().split('T')[0]; }
-  catch { return d; }
-}
-```
+### 2. `src/pages/Dashboard.tsx` — small label hint
 
-**`getSource`** — human-readable source:
-```typescript
-function getSource(tx: ExpectedTransaction): string {
-  if (tx.source === 'import_unmatched') return 'CSV';
-  if (tx.recurring_template_id) return 'Recurring';
-  return tx.source ?? '';
-}
-```
+Under the "Recently cleared" heading, add a one-line muted hint:
+> "Click the green check to restore an item to outstanding."
 
-### 2. Add `handleExport` function inside the component (~after `handleSaveSecondary`)
+That way the user immediately understands the interaction.
 
-- Headers: `['Transaction ID', 'Date', 'Primary Description', 'Secondary Description', 'Signed Amount', 'Direction', 'Type', 'Status', 'Source', 'Cleared At', 'Source Batch ID']`
-- Row mapping for each `tx` in `filtered`:
-  - ID: `tx.id`
-  - Date: `formatExportDate(tx.scheduled_date)`
-  - Primary Description: `tx.name`
-  - Secondary Description: `tx.secondary_description`
-  - Signed Amount: `tx.direction === 'pmt' ? -Math.abs(tx.expected_amount) : Math.abs(tx.expected_amount)`
-  - Direction: `tx.direction === 'pmt' ? 'payment' : 'deposit'`
-  - Type, Status: as-is
-  - Source: `getSource(tx)`
-  - Cleared At: `formatExportDate(tx.cleared_at)`
-  - Source Batch ID: `tx.source_batch_id`
-- All values go through `escapeCSV(toCSVValue(...))`
-- Prepend BOM (`'\uFEFF'`) for Excel compatibility
-- Create Blob, trigger download via temporary `<a>` element
-- Filename: `history-export-YYYY-MM-DD.csv`
+## What stays the same
 
-### 3. Add Export CSV button (around line 160, next to the summary text)
+- `handleToggleCleared` already handles both directions (clear ↔ restore). No data layer changes needed.
+- No DB migration. No new mutations.
+- History page behavior unchanged.
 
-Wrap the existing summary `<p>` in a flex row with the button:
+## Files changed
 
-```tsx
-<div className="flex items-center justify-between">
-  <p className="text-sm text-muted-foreground">
-    {filtered.length} {filterLabel} · ...
-  </p>
-  <Button size="sm" variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
-    Export CSV
-  </Button>
-</div>
-```
+| File | Change |
+|------|--------|
+| `src/components/TransactionTable.tsx` | Cleared button: tooltip, aria-label, full opacity on dimmed rows, hover style |
+| `src/pages/Dashboard.tsx` | Add helper text under "Recently cleared" heading |
 
-Button is disabled when zero rows are showing.
+## Where the user clicks
 
-### Import additions
-
-Add `ExpectedTransaction` import from `@/hooks/use-data` (already importing hooks from there).
-
-## Scope
-
-Only `src/pages/History.tsx` is modified.
-
-## Summary
-
-| Detail | Value |
-|--------|-------|
-| Export source | `filtered` array (all active filters applied) |
-| Columns | 11 columns in specified order |
-| Signed amount | Explicit: `-Math.abs()` for pmt, `+Math.abs()` for dep |
-| Date format | ISO `YYYY-MM-DD` |
-| Null handling | `toCSVValue` converts to empty string |
-| Source mapping | `CSV` / `Recurring` / raw value |
-| Excel compat | BOM prepended |
-| Zero rows | Button disabled |
-
+In the "Recently cleared" table at the bottom of the Dashboard, click the green ✓ icon in the **Cleared** column of the row you want to restore. It will move back up to "Outstanding payments" (or "Pending deposits" for deposits).

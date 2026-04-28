@@ -287,7 +287,8 @@ export default function Dashboard() {
       {recentlyCleared.length > 0 && (
         <div>
           <div className="border-t pt-4">
-            <h2 className="text-base font-medium mb-3">Recently cleared</h2>
+            <h2 className="text-base font-medium mb-1">Recently cleared</h2>
+            <p className="text-xs text-muted-foreground mb-3">Click the green check in the Cleared column to restore an item to outstanding.</p>
             <TransactionTable
               transactions={recentlyCleared}
               direction="pmt"
