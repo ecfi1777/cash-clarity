@@ -413,14 +413,35 @@ export default function Dashboard() {
       )}
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-[400px] p-5">
+      <Dialog
+        open={!!deleteConfirm}
+        onOpenChange={open => {
+          if (!open) {
+            setDeleteConfirm(null);
+            setDeleteNote('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-[440px] p-5">
           <DialogHeader>
             <DialogTitle className="font-medium">Remove transaction</DialogTitle>
-            <DialogDescription>Remove this transaction? This cannot be undone.</DialogDescription>
+            <DialogDescription>
+              Remove this transaction? It will move to <span className="font-medium">Recently deleted</span> where you can restore it.
+            </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-note">Note <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea
+              id="delete-note"
+              value={deleteNote}
+              onChange={e => setDeleteNote(e.target.value)}
+              placeholder="Why is this being removed? (e.g. duplicate, voided check)"
+              maxLength={500}
+              rows={3}
+            />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setDeleteConfirm(null); setDeleteNote(''); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeleteTransaction}>Remove</Button>
           </DialogFooter>
         </DialogContent>
