@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [deleteNote, setDeleteNote] = useState('');
   const [viewFilter, setViewFilter] = useState<'all' | 'unmatched'>('all');
 
@@ -375,7 +376,7 @@ export default function Dashboard() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => restoreTransaction.mutate(tx.id)}
+                          onClick={() => setRestoreConfirm(tx.id)}
                           disabled={restoreTransaction.isPending}
                         >
                           Restore
@@ -452,6 +453,31 @@ export default function Dashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDeleteConfirm(null); setDeleteNote(''); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeleteTransaction}>Remove</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restore confirmation */}
+      <Dialog open={!!restoreConfirm} onOpenChange={open => { if (!open) setRestoreConfirm(null); }}>
+        <DialogContent className="max-w-[400px] p-5">
+          <DialogHeader>
+            <DialogTitle className="font-medium">Restore transaction</DialogTitle>
+            <DialogDescription>
+              Restore this transaction back to <span className="font-medium">outstanding</span>? Any saved note will be kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestoreConfirm(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (restoreConfirm) {
+                  restoreTransaction.mutate(restoreConfirm);
+                  setRestoreConfirm(null);
+                }
+              }}
+            >
+              Restore
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
