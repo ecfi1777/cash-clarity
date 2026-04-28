@@ -35,7 +35,8 @@ export default function Imports() {
             <TableHeader>
               <TableRow>
                 <TableHead>File</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Import Date</TableHead>
+                <TableHead>Last Transaction Date</TableHead>
                 <TableHead className="text-right">Rows</TableHead>
                 <TableHead className="text-right">Matched</TableHead>
                 <TableHead className="text-right">Partial</TableHead>
@@ -54,6 +55,11 @@ export default function Imports() {
                   <TableCell className="font-medium truncate max-w-[200px]">{b.file_name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(b.imported_at), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {b.statement_end_date
+                      ? format(new Date(b.statement_end_date + 'T00:00:00'), 'MMM d, yyyy')
+                      : '—'}
                   </TableCell>
                   <TableCell className="text-right">{b.row_count}</TableCell>
                   <TableCell className="text-right">{b.matched_count}</TableCell>
