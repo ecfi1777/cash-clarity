@@ -263,13 +263,15 @@ export default function History() {
             {filtered.map(tx => {
               const isCheck = tx.type === 'Check' || !!tx.check_number || /^check\s*#?\d/i.test(tx.name);
               const isExpanded = expandedCheckId === tx.id;
+              const isDeleted = tx.status === 'deleted';
+              const colSpan = includeDeleted ? 8 : 7;
               return (
                 <>
-                  <tr key={tx.id} className="border-b">
+                  <tr key={tx.id} className={`border-b ${isDeleted ? 'text-muted-foreground' : ''}`}>
                     <td className="py-2 px-2">{tx.scheduled_date}</td>
                     <td className="py-2 px-2">
                       <div className="flex items-start gap-1">
-                        {isCheck && (
+                        {isCheck && !isDeleted && (
                           <button
                             onClick={() => handleToggleExpand(tx)}
                             className="mt-0.5 p-0 text-muted-foreground hover:text-foreground"
@@ -278,9 +280,12 @@ export default function History() {
                           </button>
                         )}
                         <div>
-                          {tx.name}
+                          <span className={isDeleted ? 'line-through' : ''}>{tx.name}</span>
                           {tx.secondary_description && (
                             <div className="text-xs text-muted-foreground">{tx.secondary_description}</div>
+                          )}
+                          {isDeleted && tx.notes && (
+                            <div className="text-xs italic text-muted-foreground mt-0.5">Note: {tx.notes}</div>
                           )}
                         </div>
                       </div>
@@ -296,13 +301,28 @@ export default function History() {
                         {statusLabel(tx.status)}
                       </Badge>
                     </td>
-                    <td className={`py-2 px-2 text-right min-w-amount ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
+                    <td className={`py-2 px-2 text-right min-w-amount ${isDeleted ? 'text-muted-foreground line-through' : tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
                       {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.expected_amount)}
                     </td>
+                    {includeDeleted && (
+                      <td className="py-2 px-2 text-right">
+                        {isDeleted && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7"
+                            onClick={() => setRestoreConfirm(tx.id)}
+                            disabled={restoreTransaction.isPending}
+                          >
+                            Restore
+                          </Button>
+                        )}
+                      </td>
+                    )}
                   </tr>
-                  {isCheck && isExpanded && (
+                  {isCheck && isExpanded && !isDeleted && (
                     <tr key={`${tx.id}-edit`} className="border-b bg-muted/30">
-                      <td colSpan={7} className="py-2 px-2">
+                      <td colSpan={colSpan} className="py-2 px-2">
                         <div className="flex items-center gap-2 pl-5">
                           <label className="text-xs text-muted-foreground whitespace-nowrap">Secondary description</label>
                           <Input
