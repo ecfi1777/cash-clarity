@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteNote, setDeleteNote] = useState('');
   const [viewFilter, setViewFilter] = useState<'all' | 'unmatched'>('all');
 
   const bankBalance = bankBalanceRow?.balance ?? 0;
@@ -140,9 +141,17 @@ export default function Dashboard() {
   };
 
   const handleDeleteTransaction = () => {
+    const note = deleteNote.trim().slice(0, 500) || null;
     if (deleteConfirm) {
-      deleteTransaction.mutate(deleteConfirm);
+      deleteTransaction.mutate({ id: deleteConfirm, note });
       setDeleteConfirm(null);
+      setDeleteNote('');
+    } else if (txModal.tx) {
+      deleteTransaction.mutate({ id: txModal.tx.id, note });
+      setTxModal(prev => ({ ...prev, open: false }));
+      setDeleteNote('');
+    }
+  };
     } else if (txModal.tx) {
       deleteTransaction.mutate(txModal.tx.id);
       setTxModal(prev => ({ ...prev, open: false }));
