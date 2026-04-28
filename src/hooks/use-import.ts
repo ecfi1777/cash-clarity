@@ -64,7 +64,29 @@ export function useImportBatches() {
         .select('*')
         .order('imported_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as ImportBatch[];
+      const batches = (data ?? []) as unknown as ImportBatch[];
+
+      // Derive last transaction date per batch from bank_import_rows.posted_date
+      const ids = batches.map(b => b.id);
+      if (ids.length > 0) {
+        const { data: rows, error: rowErr } = await supabase
+          .from('bank_import_rows' as any)
+          .select('batch_id, posted_date')
+          .in('batch_id', ids);
+        if (!rowErr && rows) {
+          const maxByBatch = new Map<string, string>();
+          for (const r of rows as any[]) {
+            const cur = maxByBatch.get(r.batch_id);
+            if (!cur || r.posted_date > cur) maxByBatch.set(r.batch_id, r.posted_date);
+          }
+          for (const b of batches) {
+            if (!b.statement_end_date) {
+              b.statement_end_date = maxByBatch.get(b.id) ?? null;
+            }
+          }
+        }
+      }
+      return batches;
     },
   });
 }
