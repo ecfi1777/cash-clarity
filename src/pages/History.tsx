@@ -256,6 +256,7 @@ export default function History() {
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Direction</th>
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">Status</th>
               <th className="text-right py-2 px-2 font-medium text-muted-foreground min-w-amount">Amount</th>
+              {includeDeleted && <th className="text-right py-2 px-2 font-medium text-muted-foreground w-24"></th>}
             </tr>
           </thead>
           <tbody>
