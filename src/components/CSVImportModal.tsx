@@ -232,7 +232,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
 
     // Match
     const outstanding = transactions.filter(t => t.status === 'outstanding');
-    const candidates: OutstandingCandidate[] = outstanding.map(t => ({ id: t.id, name: t.name, direction: t.direction, expected_amount: t.expected_amount, scheduled_date: t.scheduled_date }));
+    const candidates: OutstandingCandidate[] = outstanding.map(t => ({ id: t.id, name: t.name, direction: t.direction, expected_amount: t.expected_amount, scheduled_date: t.scheduled_date, check_number: (t as any).check_number ?? null }));
     const matchResults = findMatches(nonDupeBankRows, candidates, []);
 
     // Persist batch + rows
