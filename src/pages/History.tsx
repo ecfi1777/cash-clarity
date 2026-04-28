@@ -235,6 +235,9 @@ export default function History() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {filtered.length} {filterLabel} · <span className="text-payment">−${formatCurrency(totalOut)} out</span> · <span className="text-deposit">+${formatCurrency(totalIn)} in</span>
+          {includeDeleted && deletedCount > 0 && (
+            <span className="ml-2 italic">({deletedCount} deleted, excluded from totals)</span>
+          )}
         </p>
         <Button size="sm" variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
           Export CSV
