@@ -567,3 +567,40 @@ export function useRollbackBatch() {
     },
   });
 }
+
+export function useDeleteDraftBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (batchId: string) => {
+      // Safety: only delete if batch is still a draft
+      const { data: batch, error: bErr } = await supabase
+        .from('bank_import_batches' as any)
+        .select('status')
+        .eq('id', batchId)
+        .single();
+      if (bErr) throw bErr;
+      if ((batch as any)?.status !== 'draft') {
+        throw new Error('Only draft imports can be deleted.');
+      }
+      // Delete child rows first (no FK cascade defined)
+      const { error: rowErr } = await supabase
+        .from('bank_import_rows' as any)
+        .delete()
+        .eq('batch_id', batchId);
+      if (rowErr) throw rowErr;
+      const { error: logErr } = await supabase
+        .from('batch_change_log' as any)
+        .delete()
+        .eq('batch_id', batchId);
+      if (logErr) throw logErr;
+      const { error: delErr } = await supabase
+        .from('bank_import_batches' as any)
+        .delete()
+        .eq('id', batchId);
+      if (delErr) throw delErr;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['import_batches'] });
+    },
+  });
+}
