@@ -105,11 +105,13 @@ export default function History() {
     if (status === 'outstanding') return 'pending';
     if (status === 'cleared_manual') return 'cleared';
     if (status === 'matched') return 'matched';
+    if (status === 'deleted') return 'deleted';
     return status;
   };
 
   const statusVariant = (status: string) => {
     if (status === 'outstanding') return 'muted' as const;
+    if (status === 'deleted') return 'muted' as const;
     return 'deposit' as const;
   };
 
