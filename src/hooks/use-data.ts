@@ -174,13 +174,17 @@ export const useUpdateTransaction = useUpdateExpectedTransaction;
 export function useDeleteExpectedTransaction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      // Soft delete: mark status='deleted' and timestamp via cleared_at so it can be restored.
-      // Hard delete is avoided because imported transactions may be referenced
-      // by transaction_matches and other tables.
+    mutationFn: async (input: string | { id: string; note?: string | null }) => {
+      const id = typeof input === 'string' ? input : input.id;
+      const note = typeof input === 'string' ? null : (input.note ?? null);
+      const patch: Record<string, any> = {
+        status: 'deleted',
+        cleared_at: new Date().toISOString(),
+      };
+      if (note !== null) patch.notes = note;
       const { error } = await supabase
         .from('expected_transactions' as any)
-        .update({ status: 'deleted', cleared_at: new Date().toISOString() } as any)
+        .update(patch as any)
         .eq('id', id);
       if (error) throw error;
     },

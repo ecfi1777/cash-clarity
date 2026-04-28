@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { TransactionTable } from '@/components/TransactionTable';
 import { TransactionModal } from '@/components/TransactionModal';
 import { GenerateRecurringModal } from '@/components/GenerateRecurringModal';
@@ -44,6 +46,7 @@ export default function Dashboard() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteNote, setDeleteNote] = useState('');
   const [viewFilter, setViewFilter] = useState<'all' | 'unmatched'>('all');
 
   const bankBalance = bankBalanceRow?.balance ?? 0;
@@ -140,12 +143,15 @@ export default function Dashboard() {
   };
 
   const handleDeleteTransaction = () => {
+    const note = deleteNote.trim().slice(0, 500) || null;
     if (deleteConfirm) {
-      deleteTransaction.mutate(deleteConfirm);
+      deleteTransaction.mutate({ id: deleteConfirm, note });
       setDeleteConfirm(null);
+      setDeleteNote('');
     } else if (txModal.tx) {
-      deleteTransaction.mutate(txModal.tx.id);
+      deleteTransaction.mutate({ id: txModal.tx.id, note });
       setTxModal(prev => ({ ...prev, open: false }));
+      setDeleteNote('');
     }
   };
 
@@ -353,7 +359,14 @@ export default function Dashboard() {
                         {tx.cleared_at ? new Date(tx.cleared_at).toLocaleDateString('en-US') : '—'}
                       </td>
                       <td className="py-2 px-3 text-muted-foreground">{tx.scheduled_date}</td>
-                      <td className="py-2 px-3 text-muted-foreground line-through">{tx.name}</td>
+                      <td className="py-2 px-3 text-muted-foreground">
+                        <div className="line-through">{tx.name}</div>
+                        {(tx as any).notes && (
+                          <div className="text-xs italic mt-0.5 not-italic-decoration">
+                            <span className="not-italic">Note:</span> {(tx as any).notes}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-muted-foreground">{tx.type}</td>
                       <td className={`py-2 px-3 text-right tabular-nums min-w-[90px] ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
                         {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(Math.abs(tx.expected_amount))}
@@ -409,14 +422,35 @@ export default function Dashboard() {
       )}
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-[400px] p-5">
+      <Dialog
+        open={!!deleteConfirm}
+        onOpenChange={open => {
+          if (!open) {
+            setDeleteConfirm(null);
+            setDeleteNote('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-[440px] p-5">
           <DialogHeader>
             <DialogTitle className="font-medium">Remove transaction</DialogTitle>
-            <DialogDescription>Remove this transaction? This cannot be undone.</DialogDescription>
+            <DialogDescription>
+              Remove this transaction? It will move to <span className="font-medium">Recently deleted</span> where you can restore it.
+            </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-note">Note <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea
+              id="delete-note"
+              value={deleteNote}
+              onChange={e => setDeleteNote(e.target.value)}
+              placeholder="Why is this being removed? (e.g. duplicate, voided check)"
+              maxLength={500}
+              rows={3}
+            />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setDeleteConfirm(null); setDeleteNote(''); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeleteTransaction}>Remove</Button>
           </DialogFooter>
         </DialogContent>
