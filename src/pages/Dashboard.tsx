@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [deleteNote, setDeleteNote] = useState('');
   const [viewFilter, setViewFilter] = useState<'all' | 'unmatched'>('all');
 
@@ -375,7 +376,7 @@ export default function Dashboard() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => restoreTransaction.mutate(tx.id)}
+                          onClick={() => setRestoreConfirm(tx.id)}
                           disabled={restoreTransaction.isPending}
                         >
                           Restore
