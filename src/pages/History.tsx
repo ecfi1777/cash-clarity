@@ -39,6 +39,7 @@ type QuickFilter = 'all' | 'deposits' | 'unmatched';
 export default function History() {
   const { data: transactions = [], isLoading } = useExpectedTransactions();
   const updateTx = useUpdateExpectedTransaction();
+  const restoreTransaction = useRestoreExpectedTransaction();
 
   const firstOfMonth = () => {
     const d = new Date();
@@ -53,8 +54,10 @@ export default function History() {
   const [maxAmount, setMaxAmount] = useState('');
   const hasExactAmount = !isNaN(parseFloat(exactAmount));
   const [descriptionQuery, setDescriptionQuery] = useState('');
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null);
   const [editingSecondary, setEditingSecondary] = useState('');
+  const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return transactions
