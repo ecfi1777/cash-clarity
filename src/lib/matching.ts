@@ -18,6 +18,7 @@ export type OutstandingCandidate = {
   direction: string;
   expected_amount: number;
   scheduled_date: string;
+  check_number?: string | null;
 };
 
 export type VendorAlias = {
@@ -151,6 +152,17 @@ export function findMatches(
       // If amount doesn't match at all, still consider as partial candidate
       // but only if there's other signal (description/date)
 
+      // Check number match: very strong signal (+60). Normalize by stripping
+      // leading zeros and non-digits so "0042" == "42" == "#42".
+      const normCk = (v: string | null | undefined) =>
+        (v ?? '').toString().replace(/\D/g, '').replace(/^0+/, '');
+      const txCk = normCk(tx.check_number);
+      const rowCk = normCk(row.checkNumber);
+      const checkMatched = txCk.length > 0 && txCk === rowCk;
+      if (checkMatched) {
+        score += 60;
+      }
+
       // Description/alias scoring: +30
       const txNorm = normalizeDescription(tx.name);
       const rowAlias = aliasMap.get(row.normalizedDescription);
@@ -168,8 +180,8 @@ export function findMatches(
         score += Math.round(20 * (1 - daysDiff / 4)); // 20 at 0 days, 15 at 1, 10 at 2, 5 at 3
       }
 
-      // Minimum: must have amount match OR strong description+date signal
-      if (score >= 20) {
+      // Minimum: must have amount match, exact check#, OR strong description+date signal
+      if (score >= 20 || checkMatched) {
         candidates.push({ candidate: tx, score, daysDiff, amountDiff });
       }
     }
