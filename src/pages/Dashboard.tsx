@@ -104,7 +104,7 @@ export default function Dashboard() {
     updateTransaction.mutate({ id, scheduled_date });
   };
 
-  const handleSaveTransaction = (data: { name: string; amount: number; date: string; type: string }) => {
+  const handleSaveTransaction = (data: { name: string; amount: number; date: string; type: string; check_number: string | null }) => {
     if (txModal.mode === 'add') {
       createTransaction.mutate({
         name: data.name,
@@ -114,6 +114,7 @@ export default function Dashboard() {
         scheduled_date: data.date,
         status: 'outstanding',
         source: 'manual',
+        check_number: data.check_number,
       });
     } else if (txModal.tx) {
       updateTransaction.mutate({
@@ -122,6 +123,7 @@ export default function Dashboard() {
         expected_amount: data.amount,
         scheduled_date: data.date,
         type: data.type,
+        check_number: data.check_number,
       });
     }
     setTxModal(prev => ({ ...prev, open: false }));
@@ -323,7 +325,7 @@ export default function Dashboard() {
           onOpenChange={open => setTxModal(prev => ({ ...prev, open }))}
           mode={txModal.mode}
           direction={txModal.direction}
-          initial={txModal.tx ? { id: txModal.tx.id, name: txModal.tx.name, amount: txModal.tx.expected_amount, date: txModal.tx.scheduled_date, type: txModal.tx.type } : undefined}
+          initial={txModal.tx ? { id: txModal.tx.id, name: txModal.tx.name, amount: txModal.tx.expected_amount, date: txModal.tx.scheduled_date, type: txModal.tx.type, check_number: (txModal.tx as any).check_number ?? null } : undefined}
           onSave={handleSaveTransaction}
           onDelete={handleDeleteTransaction}
         />

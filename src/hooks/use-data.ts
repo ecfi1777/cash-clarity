@@ -142,6 +142,7 @@ export function useCreateExpectedTransaction() {
       cleared_at?: string | null;
       source?: string;
       recurring_template_id?: string | null;
+      check_number?: string | null;
     }) => {
       const { error } = await supabase.from('expected_transactions' as any).insert(tx as any);
       if (error) throw error;
