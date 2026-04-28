@@ -210,6 +210,10 @@ export default function History() {
           <label className="text-xs text-muted-foreground">Description</label>
           <Input type="text" placeholder="Search description" value={descriptionQuery} onChange={e => setDescriptionQuery(e.target.value)} className="w-48 h-8" />
         </div>
+        <div className="flex items-center gap-2 h-8">
+          <Switch id="include-deleted" checked={includeDeleted} onCheckedChange={setIncludeDeleted} />
+          <label htmlFor="include-deleted" className="text-xs text-muted-foreground cursor-pointer">Include deleted</label>
+        </div>
       </div>
 
       {/* Amount filter */}
