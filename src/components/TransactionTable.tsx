@@ -57,10 +57,12 @@ export function TransactionTable({ transactions, direction, onToggleCleared, onE
               <td className={`py-2 px-2 text-right min-w-amount ${direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
                 {direction === 'pmt' ? '−' : '+'}${formatCurrency(tx.expected_amount)}
               </td>
-              <td className="py-2 px-2 text-center">
+              <td className={`py-2 px-2 text-center ${dimmed ? 'opacity-100' : ''}`} style={dimmed ? { opacity: 1 } : undefined}>
                 <button
                   onClick={() => onToggleCleared(tx.id, !isCleared(tx))}
-                  className="inline-flex items-center justify-center"
+                  className="inline-flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                  title={isCleared(tx) ? 'Restore to outstanding' : 'Mark as cleared'}
+                  aria-label={isCleared(tx) ? 'Restore to outstanding' : 'Mark as cleared'}
                 >
                   {isCleared(tx) ? (
                     <CheckCircle2 className="w-5 h-5 text-deposit" />
