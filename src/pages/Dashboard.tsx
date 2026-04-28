@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [viewFilter, setViewFilter] = useState<'all' | 'unmatched'>('all');
 
   const bankBalance = bankBalanceRow?.balance ?? 0;
+  const bankAsOf = (bankBalanceRow as any)?.balance_as_of ?? '';
   const displayBankInput = bankInput ?? bankBalance.toString();
 
   const outstanding = useMemo(() =>
@@ -82,9 +83,13 @@ export default function Dashboard() {
   const handleBankBalanceChange = () => {
     const val = parseFloat(displayBankInput);
     if (!isNaN(val)) {
-      updateBankBalance.mutate(val);
+      updateBankBalance.mutate({ balance: val });
       setBankInput(null);
     }
+  };
+
+  const handleBankAsOfChange = (value: string) => {
+    updateBankBalance.mutate({ balance_as_of: value || null });
   };
 
   const handleToggleCleared = (id: string, cleared: boolean) => {
@@ -206,6 +211,15 @@ export default function Dashboard() {
               onBlur={handleBankBalanceChange}
               onKeyDown={e => e.key === 'Enter' && handleBankBalanceChange()}
               className="h-8 text-lg font-medium border-0 p-0 focus-visible:ring-0"
+            />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">As of</label>
+            <Input
+              type="date"
+              value={bankAsOf}
+              onChange={e => handleBankAsOfChange(e.target.value)}
+              className="h-7 text-xs border-0 p-0 focus-visible:ring-0 w-auto"
             />
           </div>
         </div>

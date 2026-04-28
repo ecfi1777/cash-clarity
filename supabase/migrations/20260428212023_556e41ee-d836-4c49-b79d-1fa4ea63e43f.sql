@@ -1,0 +1,1 @@
+ALTER TABLE public.bank_balance ADD COLUMN IF NOT EXISTS balance_as_of date;

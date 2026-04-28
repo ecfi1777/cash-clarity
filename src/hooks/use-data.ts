@@ -110,7 +110,9 @@ export function useBankBalance() {
 export function useUpdateBankBalance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (balance: number) => {
+    mutationFn: async (input: number | { balance?: number; balance_as_of?: string | null }) => {
+      const patch: { balance?: number; balance_as_of?: string | null } =
+        typeof input === 'number' ? { balance: input } : input;
       const { data: existing } = await supabase
         .from('bank_balance')
         .select('id')
@@ -119,7 +121,7 @@ export function useUpdateBankBalance() {
       if (!existing) throw new Error('No bank balance row');
       const { error } = await supabase
         .from('bank_balance')
-        .update({ balance })
+        .update(patch as any)
         .eq('id', existing.id);
       if (error) throw error;
     },

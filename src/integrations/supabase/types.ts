@@ -17,18 +17,21 @@ export type Database = {
       bank_balance: {
         Row: {
           balance: number
+          balance_as_of: string | null
           id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           balance?: number
+          balance_as_of?: string | null
           id?: string
           updated_at?: string
           user_id?: string
         }
         Update: {
           balance?: number
+          balance_as_of?: string | null
           id?: string
           updated_at?: string
           user_id?: string
