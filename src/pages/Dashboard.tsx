@@ -152,11 +152,6 @@ export default function Dashboard() {
       setDeleteNote('');
     }
   };
-    } else if (txModal.tx) {
-      deleteTransaction.mutate(txModal.tx.id);
-      setTxModal(prev => ({ ...prev, open: false }));
-    }
-  };
 
   const handleGenerateApply = async (items: Array<{ name: string; amount: number; direction: string; type: string; date: string; template_id: string }>) => {
     await bulkInsert.mutateAsync(items.map(i => ({
