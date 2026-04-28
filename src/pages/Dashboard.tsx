@@ -15,6 +15,7 @@ import {
   useCreateExpectedTransaction,
   useUpdateExpectedTransaction,
   useDeleteExpectedTransaction,
+  useRestoreExpectedTransaction,
   useBulkInsertExpectedTransactions,
   useBulkUpdateExpectedTransactions,
   type ExpectedTransaction,
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const createTransaction = useCreateExpectedTransaction();
   const updateTransaction = useUpdateExpectedTransaction();
   const deleteTransaction = useDeleteExpectedTransaction();
+  const restoreTransaction = useRestoreExpectedTransaction();
   const bulkInsert = useBulkInsertExpectedTransactions();
   const bulkUpdate = useBulkUpdateExpectedTransactions();
   const queryClient = useQueryClient();
@@ -70,9 +72,17 @@ export default function Dashboard() {
 
   const recentlyCleared = useMemo(() =>
     transactions
-      .filter(t => t.status !== 'outstanding')
+      .filter(t => t.status !== 'outstanding' && t.status !== 'deleted')
       .sort((a, b) => (b.cleared_at ?? '').localeCompare(a.cleared_at ?? ''))
       .slice(0, 5),
+    [transactions]
+  );
+
+  const recentlyDeleted = useMemo(() =>
+    transactions
+      .filter(t => t.status === 'deleted')
+      .sort((a, b) => (b.cleared_at ?? '').localeCompare(a.cleared_at ?? ''))
+      .slice(0, 10),
     [transactions]
   );
 
