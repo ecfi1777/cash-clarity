@@ -350,6 +350,30 @@ export default function History() {
           </p>
         )}
       </div>
+
+      <Dialog open={!!restoreConfirm} onOpenChange={open => { if (!open) setRestoreConfirm(null); }}>
+        <DialogContent className="max-w-[400px] p-5">
+          <DialogHeader>
+            <DialogTitle className="font-medium">Restore transaction</DialogTitle>
+            <DialogDescription>
+              Restore this transaction back to <span className="font-medium">outstanding</span>? Any saved note will be kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestoreConfirm(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (restoreConfirm) {
+                  restoreTransaction.mutate(restoreConfirm);
+                  setRestoreConfirm(null);
+                }
+              }}
+            >
+              Restore
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
