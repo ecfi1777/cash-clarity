@@ -359,7 +359,14 @@ export default function Dashboard() {
                         {tx.cleared_at ? new Date(tx.cleared_at).toLocaleDateString('en-US') : '—'}
                       </td>
                       <td className="py-2 px-3 text-muted-foreground">{tx.scheduled_date}</td>
-                      <td className="py-2 px-3 text-muted-foreground line-through">{tx.name}</td>
+                      <td className="py-2 px-3 text-muted-foreground">
+                        <div className="line-through">{tx.name}</div>
+                        {(tx as any).notes && (
+                          <div className="text-xs italic mt-0.5 not-italic-decoration">
+                            <span className="not-italic">Note:</span> {(tx as any).notes}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-muted-foreground">{tx.type}</td>
                       <td className={`py-2 px-3 text-right tabular-nums min-w-[90px] ${tx.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
                         {tx.direction === 'pmt' ? '−' : '+'}${formatCurrency(Math.abs(tx.expected_amount))}
