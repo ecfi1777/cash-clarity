@@ -56,6 +56,7 @@ export default function History() {
 
   const filtered = useMemo(() => {
     return transactions
+      .filter(t => t.status !== 'deleted')
       .filter(t => (!fromDate || t.scheduled_date >= fromDate) && (!toDate || t.scheduled_date <= toDate))
       .filter(t => {
         if (quickFilter === 'deposits') return t.direction === 'dep';
