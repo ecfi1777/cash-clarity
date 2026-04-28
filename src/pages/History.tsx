@@ -88,10 +88,12 @@ export default function History() {
         return primary.includes(q) || secondary.includes(q);
       })
       .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
-  }, [transactions, fromDate, toDate, quickFilter, exactAmount, minAmount, maxAmount, descriptionQuery]);
+  }, [transactions, includeDeleted, fromDate, toDate, quickFilter, exactAmount, minAmount, maxAmount, descriptionQuery]);
 
-  const totalOut = filtered.filter(t => t.direction === 'pmt').reduce((s, t) => s + t.expected_amount, 0);
-  const totalIn = filtered.filter(t => t.direction === 'dep').reduce((s, t) => s + t.expected_amount, 0);
+  const activeFiltered = useMemo(() => filtered.filter(t => t.status !== 'deleted'), [filtered]);
+  const deletedCount = filtered.length - activeFiltered.length;
+  const totalOut = activeFiltered.filter(t => t.direction === 'pmt').reduce((s, t) => s + t.expected_amount, 0);
+  const totalIn = activeFiltered.filter(t => t.direction === 'dep').reduce((s, t) => s + t.expected_amount, 0);
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
