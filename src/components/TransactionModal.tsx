@@ -17,8 +17,9 @@ type Props = {
     amount: number;
     date: string;
     type: string;
+    check_number?: string | null;
   };
-  onSave: (data: { name: string; amount: number; date: string; type: string }) => void;
+  onSave: (data: { name: string; amount: number; date: string; type: string; check_number: string | null }) => void;
   onDelete?: () => void;
 };
 
@@ -27,17 +28,21 @@ export function TransactionModal({ open, onOpenChange, mode, direction, initial,
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '');
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [type, setType] = useState(initial?.type ?? 'Check');
+  const [checkNumber, setCheckNumber] = useState(initial?.check_number ?? '');
   const [showDelete, setShowDelete] = useState(false);
 
   const title = mode === 'add'
     ? `Add ${direction === 'pmt' ? 'payment' : 'deposit'}`
     : `Edit ${direction === 'pmt' ? 'payment' : 'deposit'}`;
 
+  const refLabel = type === 'Check' ? 'Check #' : type === 'EFT' ? 'EFT #' : type === 'ACH' ? 'ACH ref #' : 'Reference / Memo';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(amount);
     if (!name.trim() || isNaN(amt) || amt <= 0 || !date) return;
-    onSave({ name: name.trim(), amount: amt, date, type });
+    const ref = checkNumber.trim().slice(0, 50);
+    onSave({ name: name.trim(), amount: amt, date, type, check_number: ref || null });
   };
 
   if (showDelete) {
@@ -92,6 +97,16 @@ export function TransactionModal({ open, onOpenChange, mode, direction, initial,
                 <SelectItem value="Cash">Cash</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tx-ref">{refLabel} <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+            <Input
+              id="tx-ref"
+              value={checkNumber}
+              onChange={e => setCheckNumber(e.target.value)}
+              maxLength={50}
+              placeholder={type === 'Check' ? 'e.g. 1042' : type === 'EFT' ? 'e.g. EFT-9381' : 'Confirmation or memo'}
+            />
           </div>
           <DialogFooter className="gap-2">
             {mode === 'edit' && onDelete && (
