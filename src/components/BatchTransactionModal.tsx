@@ -240,7 +240,7 @@ export function BatchTransactionModal({ open, onOpenChange, onSave }: Props) {
             <span className="font-medium text-foreground">{validCount}</span> valid {validCount === 1 ? 'row' : 'rows'}
             {' · Total '}
             <span className={cn('font-medium tabular-nums', direction === 'pmt' ? 'text-destructive' : 'text-emerald-600')}>
-              {fmtCurrency(total)}
+              {formatCurrency(total)}
             </span>
             {submitted && hasInvalid && (
               <span className="ml-2 text-destructive">Fix highlighted fields</span>
