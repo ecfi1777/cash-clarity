@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, X } from 'lucide-react';
-import { todayStr, fmtCurrency } from '@/lib/format';
+import { todayStr, formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 type Row = {
