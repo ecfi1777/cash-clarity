@@ -271,6 +271,9 @@ export default function Dashboard() {
         <Button onClick={() => setTxModal({ open: true, mode: 'add', direction: 'dep' })}>
           <Plus className="w-4 h-4 mr-1" /> Add deposit
         </Button>
+        <Button variant="outline" onClick={() => setBatchOpen(true)}>
+          <Plus className="w-4 h-4 mr-1" /> Add multiple
+        </Button>
         <Button variant="outline" onClick={() => setGenerateOpen(true)}>
           <RefreshCw className="w-4 h-4 mr-1" /> Generate recurring
         </Button>
