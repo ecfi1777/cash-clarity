@@ -8,7 +8,9 @@ import { TransactionTable } from '@/components/TransactionTable';
 import { TransactionModal } from '@/components/TransactionModal';
 import { GenerateRecurringModal } from '@/components/GenerateRecurringModal';
 import { CSVImportModal } from '@/components/CSVImportModal';
+import { BatchTransactionModal } from '@/components/BatchTransactionModal';
 import { formatCurrency, todayStr } from '@/lib/format';
+import { toast } from 'sonner';
 import {
   useExpectedTransactions,
   useBankBalance,
@@ -45,6 +47,7 @@ export default function Dashboard() {
   const [txModal, setTxModal] = useState<{ open: boolean; mode: 'add' | 'edit'; direction: 'pmt' | 'dep'; tx?: ExpectedTransaction }>({ open: false, mode: 'add', direction: 'pmt' });
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [deleteNote, setDeleteNote] = useState('');
@@ -268,6 +271,9 @@ export default function Dashboard() {
         <Button onClick={() => setTxModal({ open: true, mode: 'add', direction: 'dep' })}>
           <Plus className="w-4 h-4 mr-1" /> Add deposit
         </Button>
+        <Button variant="outline" onClick={() => setBatchOpen(true)}>
+          <Plus className="w-4 h-4 mr-1" /> Add multiple
+        </Button>
         <Button variant="outline" onClick={() => setGenerateOpen(true)}>
           <RefreshCw className="w-4 h-4 mr-1" /> Generate recurring
         </Button>
@@ -419,6 +425,19 @@ export default function Dashboard() {
           open={csvOpen}
           onOpenChange={setCsvOpen}
           transactions={transactions}
+        />
+      )}
+
+      {/* Batch add modal */}
+      {batchOpen && (
+        <BatchTransactionModal
+          open={batchOpen}
+          onOpenChange={setBatchOpen}
+          onSave={async (items, direction) => {
+            await bulkInsert.mutateAsync(items);
+            const noun = direction === 'pmt' ? 'payment' : 'deposit';
+            toast.success(`Added ${items.length} ${noun}${items.length === 1 ? '' : 's'}`);
+          }}
         />
       )}
 
