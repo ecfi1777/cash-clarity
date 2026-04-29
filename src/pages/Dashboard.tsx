@@ -428,6 +428,19 @@ export default function Dashboard() {
         />
       )}
 
+      {/* Batch add modal */}
+      {batchOpen && (
+        <BatchTransactionModal
+          open={batchOpen}
+          onOpenChange={setBatchOpen}
+          onSave={async (items, direction) => {
+            await bulkInsert.mutateAsync(items);
+            const noun = direction === 'pmt' ? 'payment' : 'deposit';
+            toast.success(`Added ${items.length} ${noun}${items.length === 1 ? '' : 's'}`);
+          }}
+        />
+      )}
+
       {/* Delete confirmation */}
       <Dialog
         open={!!deleteConfirm}
