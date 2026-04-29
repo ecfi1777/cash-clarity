@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [txModal, setTxModal] = useState<{ open: boolean; mode: 'add' | 'edit'; direction: 'pmt' | 'dep'; tx?: ExpectedTransaction }>({ open: false, mode: 'add', direction: 'pmt' });
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [restoreConfirm, setRestoreConfirm] = useState<string | null>(null);
   const [deleteNote, setDeleteNote] = useState('');
