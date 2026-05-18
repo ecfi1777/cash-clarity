@@ -55,7 +55,7 @@ function getOccurrences(template: RecurringTemplate, today: Date): string[] {
   }
 
   while (cursor <= today) {
-    dates.push(cursor.toISOString().split('T')[0]);
+    dates.push(toEasternDateStr(cursor));
     cursor = addPeriod(cursor);
   }
 
