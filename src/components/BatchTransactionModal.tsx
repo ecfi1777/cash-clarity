@@ -52,11 +52,17 @@ export function BatchTransactionModal({ open, onOpenChange, onSave }: Props) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [dupReview, setDupReview] = useState<null | {
+    items: SaveItem[];
+    flagged: Array<{ item: SaveItem; matches: DuplicateMatch[] }>;
+  }>(null);
 
   const reset = () => {
     setRows(initialRows());
     setSubmitted(false);
     setDirection('pmt');
+    setDupReview(null);
   };
 
   const handleClose = (next: boolean) => {
