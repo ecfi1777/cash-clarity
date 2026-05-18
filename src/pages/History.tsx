@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { formatCurrency, todayStr } from '@/lib/format';
+import { formatCurrency, todayStr, toEasternDateStr } from '@/lib/format';
 import { useExpectedTransactions, useUpdateExpectedTransaction, useRestoreExpectedTransaction } from '@/hooks/use-data';
 import { toast } from 'sonner';
 import type { ExpectedTransaction } from '@/hooks/use-data';
