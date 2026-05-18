@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { formatCurrency, parseDate, parseAmount } from '@/lib/format';
+import { formatCurrency, parseDate, parseAmount, toEasternDateStr } from '@/lib/format';
 import type { ExpectedTransaction } from '@/hooks/use-data';
 import { Upload } from 'lucide-react';
 import {
@@ -181,7 +181,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       const dateRaw = row[dtCol] || '';
       const parsedDate = parseDate(dateRaw);
       if (!parsedDate || !desc) continue;
-      const dateStr = parsedDate.toISOString().split('T')[0];
+      const dateStr = toEasternDateStr(parsedDate);
 
       let amount: number;
       let direction: 'pmt' | 'dep';

@@ -40,6 +40,14 @@ export function parseAmount(raw: string): number {
   return isNaN(num) ? 0 : num;
 }
 
+// Format a Date as YYYY-MM-DD in America/New_York (Eastern) wall-clock time.
+export function toEasternDateStr(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return toEasternDateStr(new Date());
 }

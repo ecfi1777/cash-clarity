@@ -1,58 +1,52 @@
 ## Problem
-Editing the **Bank balance (posted)** field on the Dashboard appears not to save. The mutation is actually firing, but the UI snaps back to the old number because local input state is cleared before the refetched value arrives.
 
-### Root cause (in `src/pages/Dashboard.tsx`)
-```ts
-const displayBankInput = bankInput ?? bankBalance.toString();
+"Today" and several date conversions use `new Date().toISOString().split('T')[0]`, which returns the **UTC** date. After ~8pm Eastern, UTC has already rolled to the next day, so:
 
-const handleBankBalanceChange = () => {
-  const val = parseFloat(displayBankInput);
-  if (!isNaN(val)) {
-    updateBankBalance.mutate({ balance: val }); // async
-    setBankInput(null);                          // runs immediately
-  }
-};
-```
-On blur:
-1. `setBankInput(null)` runs synchronously.
-2. The field now reads from `bankBalance.toString()` — still the **stale cached value** from React Query.
-3. The Supabase update + invalidation + refetch eventually resolves and the new value appears.
+- Newly created transactions get tomorrow's date
+- "Today" markers / cleared-today logic land on the wrong day
+- CSV-parsed dates can shift by 1 day depending on how the source string was interpreted
+- Recurring generation can produce dates one day ahead
 
-Between step 2 and step 3 the input visibly reverts to the old number, which the user reads as "it didn't save."
+Fix: force all "date-only" stringification to **America/New_York** (Eastern, automatically handles EST/EDT — true year-round Eastern wall-clock time).
 
-## Fix
+## Changes
 
-1. **Don't clear local state until the mutation actually succeeds.** Use the `onSuccess` callback of `mutate` so the field keeps showing the typed value during the round-trip, then hands off to the freshly refetched value.
-2. **Skip the write if the value didn't change** (avoid pointless flicker when the user just tabs through).
-3. **Coerce `bankBalance` to a number** when stringifying for display, in case Supabase returns numeric as a string.
-4. **On mutation error**, restore the input to the server value and surface a toast so a real failure is visible instead of silent.
+### 1. `src/lib/format.ts` — add a single source of truth
 
-### Code changes (single file: `src/pages/Dashboard.tsx`)
+Add a helper and rewrite `todayStr` to use it:
 
 ```ts
-const displayBankInput = bankInput ?? Number(bankBalance).toString();
+// Format a Date as YYYY-MM-DD in America/New_York (Eastern) wall-clock time.
+export function toEasternDateStr(d: Date): string {
+  // en-CA gives YYYY-MM-DD
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
 
-const handleBankBalanceChange = () => {
-  if (bankInput === null) return;            // nothing typed
-  const val = parseFloat(bankInput);
-  if (isNaN(val)) { setBankInput(null); return; }
-  if (val === Number(bankBalance)) { setBankInput(null); return; }
-
-  updateBankBalance.mutate(
-    { balance: val },
-    {
-      onSuccess: () => setBankInput(null),   // hand off only after refetch fires
-      onError: () => {
-        setBankInput(null);
-        toast({ title: 'Could not save bank balance', variant: 'destructive' });
-      },
-    }
-  );
-};
+export function todayStr(): string {
+  return toEasternDateStr(new Date());
+}
 ```
 
-No backend, schema, or RLS changes needed — the existing row updates correctly; this is purely a UI state-handoff bug.
+### 2. Replace remaining `toISOString().split('T')[0]` calls
 
-## Out of scope
-- No changes to the "As of" date handler (it writes through cleanly because there's no local input mirror).
-- No changes to `useUpdateBankBalance` or the `bank_balance` table.
+All six locations swap to `toEasternDateStr(d)`:
+
+- `src/pages/Dashboard.tsx:204` — `next_due_date` after generating recurring
+- `src/components/GenerateRecurringModal.tsx:58` — recurring cursor dates
+- `src/pages/History.tsx:27` — date normalization helper
+- `src/pages/History.tsx:174` — CSV export filename
+- `src/components/CSVImportModal.tsx:184` — parsed CSV posted_date
+
+### 3. Sanity-pass on other `new Date(...)` usages
+
+`parseDate` in `format.ts` already constructs dates via `new Date(year, month-1, day)` (local-time, no TZ shift) — keep as is. `new Date(yyyy-mm-dd + 'T00:00:00')` patterns (e.g. GenerateRecurringModal:49) are also local-time safe — keep as is.
+
+No DB schema changes. No RLS changes. Pure client-side date-string fix.
+
+## Notes
+
+- This forces Eastern regardless of the user's browser timezone, so behavior is consistent if you ever open the app while traveling.
+- Existing rows already saved with a UTC-shifted date are **not** rewritten — only future writes are corrected. If you want, after applying I can run a one-shot SQL check to list any suspiciously off-by-one rows so you can decide whether to adjust them.

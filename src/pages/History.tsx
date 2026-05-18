@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { formatCurrency, todayStr } from '@/lib/format';
+import { formatCurrency, todayStr, toEasternDateStr } from '@/lib/format';
 import { useExpectedTransactions, useUpdateExpectedTransaction, useRestoreExpectedTransaction } from '@/hooks/use-data';
 import { toast } from 'sonner';
 import type { ExpectedTransaction } from '@/hooks/use-data';
@@ -24,7 +24,7 @@ function escapeCSV(value: string): string {
 
 function formatExportDate(d: string | null): string {
   if (!d) return '';
-  try { return new Date(d).toISOString().split('T')[0]; }
+  try { return toEasternDateStr(new Date(d)); }
   catch { return d; }
 }
 
@@ -171,7 +171,7 @@ export default function History() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `history-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `history-export-${todayStr()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
