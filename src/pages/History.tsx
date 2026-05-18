@@ -24,7 +24,7 @@ function escapeCSV(value: string): string {
 
 function formatExportDate(d: string | null): string {
   if (!d) return '';
-  try { return new Date(d).toISOString().split('T')[0]; }
+  try { return toEasternDateStr(new Date(d)); }
   catch { return d; }
 }
 
