@@ -146,11 +146,10 @@ export function findMatches(
 
       // Amount scoring: +50 for exact match
       const amountDiff = Math.abs(tx.expected_amount - row.amount);
-      if (amountDiff < 0.01) {
+      const amountMatched = amountDiff < 0.01;
+      if (amountMatched) {
         score += 50;
       }
-      // If amount doesn't match at all, still consider as partial candidate
-      // but only if there's other signal (description/date)
 
       // Check number match: very strong signal (+60). Normalize by stripping
       // leading zeros and non-digits so "0042" == "42" == "#42".
@@ -166,10 +165,20 @@ export function findMatches(
       // Description/alias scoring: +30
       const txNorm = normalizeDescription(tx.name);
       const rowAlias = aliasMap.get(row.normalizedDescription);
+      let descSignal = false;
       if (txNorm === row.normalizedDescription || (rowAlias && txNorm.includes(rowAlias))) {
         score += 30;
+        descSignal = true;
       } else if (txNorm.includes(row.normalizedDescription) || row.normalizedDescription.includes(txNorm)) {
         score += 15; // partial description match
+        descSignal = true;
+      } else {
+        // Token overlap: any shared word ≥3 chars counts as a weak signal
+        const txTokens = new Set(txNorm.split(/\s+/).filter(t => t.length >= 3));
+        const rowTokens = row.normalizedDescription.split(/\s+/).filter(t => t.length >= 3);
+        if (rowTokens.some(t => txTokens.has(t))) {
+          descSignal = true;
+        }
       }
 
       // Date proximity scoring: +20 (scaled)
@@ -180,8 +189,11 @@ export function findMatches(
         score += Math.round(20 * (1 - daysDiff / 4)); // 20 at 0 days, 15 at 1, 10 at 2, 5 at 3
       }
 
-      // Minimum: must have amount match, exact check#, OR strong description+date signal
-      if (score >= 20 || checkMatched) {
+      // Qualification: exact check# always qualifies. Otherwise require
+      // score ≥ 35 AND at least one non-date signal (amount, check#, or
+      // description overlap). Pure date proximity never qualifies.
+      const hasNonDateSignal = amountMatched || checkMatched || descSignal;
+      if (checkMatched || (score >= 35 && hasNonDateSignal)) {
         candidates.push({ candidate: tx, score, daysDiff, amountDiff });
       }
     }
