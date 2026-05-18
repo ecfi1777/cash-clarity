@@ -171,7 +171,7 @@ export default function History() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `history-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `history-export-${todayStr()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
