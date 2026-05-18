@@ -111,6 +111,19 @@ export function BatchTransactionModal({ open, onOpenChange, onSave }: Props) {
     return false;
   };
 
+  const commitItems = async (items: SaveItem[]) => {
+    try {
+      setSaving(true);
+      await onSave(items, direction);
+      reset();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to save batch:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitted(true);
     if (validCount === 0 || hasInvalid) return;
@@ -128,19 +141,94 @@ export function BatchTransactionModal({ open, onOpenChange, onSave }: Props) {
         check_number: row.checkNumber.trim().slice(0, 50) || null,
       }));
 
+    // Duplicate check across all items
+    setChecking(true);
     try {
-      setSaving(true);
-      await onSave(items, direction);
-      reset();
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Failed to save batch:", error);
+      const results = await Promise.all(
+        items.map(it =>
+          findPotentialDuplicates({
+            direction: it.direction,
+            amount: it.expected_amount,
+            checkNumber: it.check_number,
+          }).then(matches => ({ item: it, matches }))
+        )
+      );
+      const flagged = results.filter(r => r.matches.length > 0);
+      if (flagged.length > 0) {
+        setDupReview({ items, flagged });
+        return;
+      }
     } finally {
-      setSaving(false);
+      setChecking(false);
     }
+
+    await commitItems(items);
   };
 
   const noun = direction === 'pmt' ? 'payments' : 'deposits';
+
+  if (dupReview) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-[900px] p-5 max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-medium">Possible duplicates</DialogTitle>
+            <DialogDescription>
+              {dupReview.flagged.length} of {dupReview.items.length} {noun} match existing entries. Review before adding all.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto border border-border rounded-md flex-1">
+            <div className="divide-y divide-border">
+              {dupReview.flagged.map(({ item, matches }, idx) => (
+                <div key={idx} className="p-3 space-y-2">
+                  <div className="text-sm">
+                    <span className="font-medium">New:</span> {item.name} · {item.scheduled_date} ·{' '}
+                    <span className={cn('tabular-nums', direction === 'pmt' ? 'text-destructive' : 'text-emerald-600')}>
+                      {formatCurrency(item.expected_amount)}
+                    </span>
+                    {item.check_number && <> · Check #{item.check_number}</>}
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/30">
+                      <tr className="text-left">
+                        <th className="px-2 py-1 font-medium">Date</th>
+                        <th className="px-2 py-1 font-medium">Description</th>
+                        <th className="px-2 py-1 font-medium text-right">Amount</th>
+                        <th className="px-2 py-1 font-medium">Check #</th>
+                        <th className="px-2 py-1 font-medium">Status</th>
+                        <th className="px-2 py-1 font-medium">Matches on</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {matches.map(m => (
+                        <tr key={m.id} className="border-t border-border">
+                          <td className="px-2 py-1">{m.scheduled_date}</td>
+                          <td className="px-2 py-1">{m.name}</td>
+                          <td className="px-2 py-1 text-right tabular-nums min-w-[90px]">{formatCurrency(m.expected_amount)}</td>
+                          <td className="px-2 py-1">{m.check_number || '—'}</td>
+                          <td className="px-2 py-1">{statusLabel(m.status)}</td>
+                          <td className="px-2 py-1 text-muted-foreground">{reasonLabel(m.matchReason)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDupReview(null)} disabled={saving}>
+              Back to edit
+            </Button>
+            <Button onClick={() => commitItems(dupReview.items)} disabled={saving}>
+              {saving ? 'Adding…' : `Add all (${dupReview.items.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
