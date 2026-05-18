@@ -9,7 +9,7 @@ import { TransactionModal } from '@/components/TransactionModal';
 import { GenerateRecurringModal } from '@/components/GenerateRecurringModal';
 import { CSVImportModal } from '@/components/CSVImportModal';
 import { BatchTransactionModal } from '@/components/BatchTransactionModal';
-import { formatCurrency, todayStr } from '@/lib/format';
+import { formatCurrency, todayStr, toEasternDateStr } from '@/lib/format';
 import { toast } from 'sonner';
 import {
   useExpectedTransactions,
