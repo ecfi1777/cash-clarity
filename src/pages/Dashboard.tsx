@@ -55,7 +55,7 @@ export default function Dashboard() {
 
   const bankBalance = bankBalanceRow?.balance ?? 0;
   const bankAsOf = (bankBalanceRow as any)?.balance_as_of ?? '';
-  const displayBankInput = bankInput ?? bankBalance.toString();
+  const displayBankInput = bankInput ?? Number(bankBalance).toString();
 
   const outstanding = useMemo(() =>
     transactions.filter(t => t.status === 'outstanding' && t.direction === 'pmt').sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
