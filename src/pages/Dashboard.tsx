@@ -201,7 +201,7 @@ export default function Dashboard() {
           if (nextQ !== undefined) { d.setMonth(nextQ); d.setDate(1); }
           else { d.setFullYear(d.getFullYear() + 1); d.setMonth(0); d.setDate(1); }
         }
-        nextDue = d.toISOString().split('T')[0];
+        nextDue = toEasternDateStr(d);
       }
 
       await supabase.from('recurring_templates' as any).update({
