@@ -347,8 +347,8 @@ export function BatchTransactionModal({ open, onOpenChange, onSave }: Props) {
           <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={saving || validCount === 0}>
-            {saving ? 'Adding…' : `Add all (${validCount})`}
+          <Button type="button" onClick={handleSubmit} disabled={saving || checking || validCount === 0}>
+            {checking ? 'Checking…' : saving ? 'Adding…' : `Add all (${validCount})`}
           </Button>
         </DialogFooter>
       </DialogContent>
