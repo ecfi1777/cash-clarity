@@ -98,11 +98,20 @@ export default function Dashboard() {
   const tcp = bankBalance - outstandingTotal + pendingTotal;
 
   const handleBankBalanceChange = () => {
-    const val = parseFloat(displayBankInput);
-    if (!isNaN(val)) {
-      updateBankBalance.mutate({ balance: val });
-      setBankInput(null);
-    }
+    if (bankInput === null) return;
+    const val = parseFloat(bankInput);
+    if (isNaN(val)) { setBankInput(null); return; }
+    if (val === Number(bankBalance)) { setBankInput(null); return; }
+    updateBankBalance.mutate(
+      { balance: val },
+      {
+        onSuccess: () => setBankInput(null),
+        onError: () => {
+          setBankInput(null);
+          toast.error('Could not save bank balance');
+        },
+      }
+    );
   };
 
   const handleBankAsOfChange = (value: string) => {
