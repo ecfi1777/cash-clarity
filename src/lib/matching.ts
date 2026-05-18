@@ -212,11 +212,20 @@ export function findMatches(
       continue;
     }
 
-    // Sort by score descending
-    candidates.sort((a, b) => b.score - a.score);
+    // Sort by score descending, then by closest date as tie-breaker
+    candidates.sort((a, b) => (b.score - a.score) || (a.daysDiff - b.daysDiff));
 
-    // Check for ambiguous tie: top two within 5 points
-    if (candidates.length >= 2 && candidates[0].score - candidates[1].score < 5) {
+    // Check# exact match is an authoritative signal — never treat as ambiguous,
+    // even if multiple expected rows share the same check# (those are duplicates
+    // the user can clean up; we'll consume the closest-date one).
+    const normCk = (v: string | null | undefined) =>
+      (v ?? '').toString().replace(/\D/g, '').replace(/^0+/, '');
+    const rowCkNorm = normCk(row.checkNumber);
+    const topHasCheckMatch =
+      rowCkNorm.length > 0 && normCk(candidates[0].candidate.check_number) === rowCkNorm;
+
+    // Check for ambiguous tie: top two within 5 points (skip when check# matched)
+    if (!topHasCheckMatch && candidates.length >= 2 && candidates[0].score - candidates[1].score < 5) {
       results.push({
         bankRowIndex: row.index,
         status: 'unmatched',
