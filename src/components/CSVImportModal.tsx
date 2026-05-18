@@ -181,7 +181,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
       const dateRaw = row[dtCol] || '';
       const parsedDate = parseDate(dateRaw);
       if (!parsedDate || !desc) continue;
-      const dateStr = parsedDate.toISOString().split('T')[0];
+      const dateStr = toEasternDateStr(parsedDate);
 
       let amount: number;
       let direction: 'pmt' | 'dep';
