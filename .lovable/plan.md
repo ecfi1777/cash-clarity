@@ -1,52 +1,55 @@
-## Problem
+## Goal
 
-"Today" and several date conversions use `new Date().toISOString().split('T')[0]`, which returns the **UTC** date. After ~8pm Eastern, UTC has already rolled to the next day, so:
+Replace the always-editable bank balance field with a clear **read → Edit → Save / Cancel** flow.
 
-- Newly created transactions get tomorrow's date
-- "Today" markers / cleared-today logic land on the wrong day
-- CSV-parsed dates can shift by 1 day depending on how the source string was interpreted
-- Recurring generation can produce dates one day ahead
+## Current behavior (the problem)
 
-Fix: force all "date-only" stringification to **America/New_York** (Eastern, automatically handles EST/EDT — true year-round Eastern wall-clock time).
+The "Bank balance (posted)" card shows an input bound directly to the value. It looks like static text but is actually live — typed changes save automatically on blur or Enter. There's no explicit edit affordance and no obvious save action, which is why edits feel like they "don't stick."
 
-## Changes
+## New behavior
 
-### 1. `src/lib/format.ts` — add a single source of truth
+### Default (read) state
+- Bank balance displayed as **plain styled text** (e.g. `$12,345.67`), no input chrome.
+- A small **Edit** button (pencil icon + "Edit" label) sits next to it.
+- "As of" date stays as is below.
 
-Add a helper and rewrite `todayStr` to use it:
+### Edit state (after clicking Edit)
+- Balance becomes an editable number input, prefilled with the current value, autofocused, text selected.
+- Two buttons appear: **Save** (primary) and **Cancel** (ghost).
+- `Enter` triggers Save. `Escape` triggers Cancel.
+- Save: validates the number, calls `updateBankBalance.mutate`; on success, exits edit mode and toasts "Bank balance updated"; on error, stays in edit mode and shows an error toast.
+- Cancel: discards the typed value, exits edit mode.
+- While the mutation is in flight, the Save button shows a loading state and inputs are disabled.
 
-```ts
-// Format a Date as YYYY-MM-DD in America/New_York (Eastern) wall-clock time.
-export function toEasternDateStr(d: Date): string {
-  // en-CA gives YYYY-MM-DD
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(d);
-}
+### "As of" date
+- Leave as the existing inline date input (already works fine and is a separate field). No change unless you'd like the same edit/save pattern applied there too — let me know.
 
-export function todayStr(): string {
-  return toEasternDateStr(new Date());
-}
+## Files
+
+- **`src/pages/Dashboard.tsx`** — only file touched.
+  - Add `isEditingBalance` state.
+  - Replace the always-on `<Input>` block (lines ~235–246) with conditional read view + edit view.
+  - Wire Save/Cancel/Enter/Escape handlers using the existing `updateBankBalance` mutation and `bankInput` state.
+  - Remove the now-unused `onBlur` auto-save path.
+
+No backend, schema, RLS, or hook changes. Pure UI/state refactor of one card.
+
+## Visual
+
+Read state (compact):
+
+```
+Bank balance (posted)
+$12,345.67   [✎ Edit]
+As of 05/18/2026
 ```
 
-### 2. Replace remaining `toISOString().split('T')[0]` calls
+Edit state:
 
-All six locations swap to `toEasternDateStr(d)`:
+```
+Bank balance (posted)
+$ [ 12345.67    ]  [Save] [Cancel]
+As of 05/18/2026
+```
 
-- `src/pages/Dashboard.tsx:204` — `next_due_date` after generating recurring
-- `src/components/GenerateRecurringModal.tsx:58` — recurring cursor dates
-- `src/pages/History.tsx:27` — date normalization helper
-- `src/pages/History.tsx:174` — CSV export filename
-- `src/components/CSVImportModal.tsx:184` — parsed CSV posted_date
-
-### 3. Sanity-pass on other `new Date(...)` usages
-
-`parseDate` in `format.ts` already constructs dates via `new Date(year, month-1, day)` (local-time, no TZ shift) — keep as is. `new Date(yyyy-mm-dd + 'T00:00:00')` patterns (e.g. GenerateRecurringModal:49) are also local-time safe — keep as is.
-
-No DB schema changes. No RLS changes. Pure client-side date-string fix.
-
-## Notes
-
-- This forces Eastern regardless of the user's browser timezone, so behavior is consistent if you ever open the app while traveling.
-- Existing rows already saved with a UTC-shifted date are **not** rewritten — only future writes are corrected. If you want, after applying I can run a one-shot SQL check to list any suspiciously off-by-one rows so you can decide whether to adjust them.
+Buttons use existing shadcn `Button` variants — flat aesthetic, no shadows, consistent with the rest of the dashboard.
