@@ -27,7 +27,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, RefreshCw, Upload } from 'lucide-react';
+import { Plus, RefreshCw, Upload, Pencil } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Dashboard() {
@@ -44,6 +44,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   const [bankInput, setBankInput] = useState<string | null>(null);
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [txModal, setTxModal] = useState<{ open: boolean; mode: 'add' | 'edit'; direction: 'pmt' | 'dep'; tx?: ExpectedTransaction }>({ open: false, mode: 'add', direction: 'pmt' });
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
@@ -97,22 +98,34 @@ export default function Dashboard() {
   const pendingTotal = pending.reduce((s, t) => s + t.expected_amount, 0);
   const tcp = bankBalance - outstandingTotal + pendingTotal;
 
-  const handleBankBalanceChange = () => {
-    if (bankInput === null) return;
+  const startEditBalance = () => {
+    setBankInput(Number(bankBalance).toString());
+    setIsEditingBalance(true);
+  };
+
+  const cancelEditBalance = () => {
+    setBankInput(null);
+    setIsEditingBalance(false);
+  };
+
+  const saveBankBalance = () => {
+    if (bankInput === null) { setIsEditingBalance(false); return; }
     const val = parseFloat(bankInput);
-    if (isNaN(val)) { setBankInput(null); return; }
-    if (val === Number(bankBalance)) { setBankInput(null); return; }
+    if (isNaN(val)) { toast.error('Enter a valid number'); return; }
+    if (val === Number(bankBalance)) { cancelEditBalance(); return; }
     updateBankBalance.mutate(
       { balance: val },
       {
-        onSuccess: () => setBankInput(null),
-        onError: () => {
+        onSuccess: () => {
           setBankInput(null);
-          toast.error('Could not save bank balance');
+          setIsEditingBalance(false);
+          toast.success('Bank balance updated');
         },
+        onError: () => toast.error('Could not save bank balance'),
       }
     );
   };
+
 
   const handleBankAsOfChange = (value: string) => {
     updateBankBalance.mutate({ balance_as_of: value || null });
@@ -232,18 +245,38 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="border rounded-md p-4">
           <p className="text-xs text-muted-foreground mb-1">Bank balance (posted)</p>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">$</span>
-            <Input
-              type="number"
-              step="0.01"
-              value={displayBankInput}
-              onChange={e => setBankInput(e.target.value)}
-              onBlur={handleBankBalanceChange}
-              onKeyDown={e => e.key === 'Enter' && handleBankBalanceChange()}
-              className="h-8 text-lg font-medium border-0 p-0 focus-visible:ring-0"
-            />
-          </div>
+          {!isEditingBalance ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-lg font-medium">${formatCurrency(Number(bankBalance))}</p>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={startEditBalance}>
+                <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-lg">$</span>
+              <Input
+                type="number"
+                step="0.01"
+                autoFocus
+                value={bankInput ?? ''}
+                onChange={e => setBankInput(e.target.value)}
+                onFocus={e => e.target.select()}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveBankBalance();
+                  if (e.key === 'Escape') cancelEditBalance();
+                }}
+                disabled={updateBankBalance.isPending}
+                className="h-8 text-lg font-medium flex-1"
+              />
+              <Button size="sm" className="h-8" onClick={saveBankBalance} disabled={updateBankBalance.isPending}>
+                {updateBankBalance.isPending ? 'Saving…' : 'Save'}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8" onClick={cancelEditBalance} disabled={updateBankBalance.isPending}>
+                Cancel
+              </Button>
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <label className="text-xs text-muted-foreground">As of</label>
             <Input
