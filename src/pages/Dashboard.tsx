@@ -245,18 +245,38 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="border rounded-md p-4">
           <p className="text-xs text-muted-foreground mb-1">Bank balance (posted)</p>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">$</span>
-            <Input
-              type="number"
-              step="0.01"
-              value={displayBankInput}
-              onChange={e => setBankInput(e.target.value)}
-              onBlur={handleBankBalanceChange}
-              onKeyDown={e => e.key === 'Enter' && handleBankBalanceChange()}
-              className="h-8 text-lg font-medium border-0 p-0 focus-visible:ring-0"
-            />
-          </div>
+          {!isEditingBalance ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-lg font-medium">${formatCurrency(Number(bankBalance))}</p>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={startEditBalance}>
+                <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-lg">$</span>
+              <Input
+                type="number"
+                step="0.01"
+                autoFocus
+                value={bankInput ?? ''}
+                onChange={e => setBankInput(e.target.value)}
+                onFocus={e => e.target.select()}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveBankBalance();
+                  if (e.key === 'Escape') cancelEditBalance();
+                }}
+                disabled={updateBankBalance.isPending}
+                className="h-8 text-lg font-medium flex-1"
+              />
+              <Button size="sm" className="h-8" onClick={saveBankBalance} disabled={updateBankBalance.isPending}>
+                {updateBankBalance.isPending ? 'Saving…' : 'Save'}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8" onClick={cancelEditBalance} disabled={updateBankBalance.isPending}>
+                Cancel
+              </Button>
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <label className="text-xs text-muted-foreground">As of</label>
             <Input
