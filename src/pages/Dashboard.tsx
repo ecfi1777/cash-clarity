@@ -98,22 +98,34 @@ export default function Dashboard() {
   const pendingTotal = pending.reduce((s, t) => s + t.expected_amount, 0);
   const tcp = bankBalance - outstandingTotal + pendingTotal;
 
-  const handleBankBalanceChange = () => {
-    if (bankInput === null) return;
+  const startEditBalance = () => {
+    setBankInput(Number(bankBalance).toString());
+    setIsEditingBalance(true);
+  };
+
+  const cancelEditBalance = () => {
+    setBankInput(null);
+    setIsEditingBalance(false);
+  };
+
+  const saveBankBalance = () => {
+    if (bankInput === null) { setIsEditingBalance(false); return; }
     const val = parseFloat(bankInput);
-    if (isNaN(val)) { setBankInput(null); return; }
-    if (val === Number(bankBalance)) { setBankInput(null); return; }
+    if (isNaN(val)) { toast.error('Enter a valid number'); return; }
+    if (val === Number(bankBalance)) { cancelEditBalance(); return; }
     updateBankBalance.mutate(
       { balance: val },
       {
-        onSuccess: () => setBankInput(null),
-        onError: () => {
+        onSuccess: () => {
           setBankInput(null);
-          toast.error('Could not save bank balance');
+          setIsEditingBalance(false);
+          toast.success('Bank balance updated');
         },
+        onError: () => toast.error('Could not save bank balance'),
       }
     );
   };
+
 
   const handleBankAsOfChange = (value: string) => {
     updateBankBalance.mutate({ balance_as_of: value || null });
