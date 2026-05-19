@@ -44,6 +44,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   const [bankInput, setBankInput] = useState<string | null>(null);
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [txModal, setTxModal] = useState<{ open: boolean; mode: 'add' | 'edit'; direction: 'pmt' | 'dep'; tx?: ExpectedTransaction }>({ open: false, mode: 'add', direction: 'pmt' });
   const [generateOpen, setGenerateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
