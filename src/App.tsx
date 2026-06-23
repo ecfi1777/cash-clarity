@@ -10,6 +10,8 @@ import History from "./pages/History";
 import Recurring from "./pages/Recurring";
 import Imports from "./pages/Imports";
 import ImportDetail from "./pages/ImportDetail";
+import Reports from "./pages/Reports";
+import UnmatchedChecks from "./pages/UnmatchedChecks";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
