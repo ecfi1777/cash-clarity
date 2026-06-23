@@ -43,7 +43,7 @@ export default function UnmatchedChecks() {
       return;
     }
     try {
-      await update.mutateAsync({ id, updates: { name: value } as any });
+      await update.mutateAsync({ id, name: value } as any);
       setDrafts(prev => {
         const next = { ...prev };
         delete next[id];
