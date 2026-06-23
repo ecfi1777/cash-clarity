@@ -66,6 +66,8 @@ type NewRow = CSVRow & {
   editedDescription: string;
   type: string;
   bankImportRowId: string;
+  checkNumber: string | null;
+  vendorName: string;
 };
 
 type DuplicateRow = CSVRow & {
