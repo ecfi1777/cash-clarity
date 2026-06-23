@@ -10,6 +10,8 @@ import History from "./pages/History";
 import Recurring from "./pages/Recurring";
 import Imports from "./pages/Imports";
 import ImportDetail from "./pages/ImportDetail";
+import Reports from "./pages/Reports";
+import UnmatchedChecks from "./pages/UnmatchedChecks";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -38,6 +40,8 @@ const AppRoutes = () => {
         <Route path="/recurring" element={<ProtectedRoute><Recurring /></ProtectedRoute>} />
         <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
         <Route path="/imports/:batchId" element={<ProtectedRoute><ImportDetail /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        <Route path="/reports/unmatched-checks" element={<ProtectedRoute><UnmatchedChecks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

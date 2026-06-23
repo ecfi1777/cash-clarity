@@ -1,55 +1,55 @@
 ## Goal
 
-Replace the always-editable bank balance field with a clear **read → Edit → Save / Cancel** flow.
+Let the user name the vendor for any check-numbered bank row that comes through as "unmatched." They can do it inline during the CSV import wizard, or skip it and finish the task later from a new **Reports → Unmatched Checks** page.
 
-## Current behavior (the problem)
+## Part 1 — Vendor entry during CSV import (Unmatched step)
 
-The "Bank balance (posted)" card shows an input bound directly to the value. It looks like static text but is actually live — typed changes save automatically on blur or Enter. There's no explicit edit affordance and no obvious save action, which is why edits feel like they "don't stick."
+In the CSV Import modal's "Unmatched" step, each row that has a check number gets a new **Vendor** text field next to the existing Type / Date / Amount controls.
 
-## New behavior
+- Field is only shown when `row.check_number` is present (Type = Check).
+- Optional — leaving it blank is fine; the row still imports.
+- When provided, the value is saved into `expected_transactions.name` on apply (instead of the current default like "Check #1234").
+- "Next: duplicates" remains enabled regardless of whether vendors are filled in.
 
-### Default (read) state
-- Bank balance displayed as **plain styled text** (e.g. `$12,345.67`), no input chrome.
-- A small **Edit** button (pencil icon + "Edit" label) sits next to it.
-- "As of" date stays as is below.
+## Part 2 — New Reports tab
 
-### Edit state (after clicking Edit)
-- Balance becomes an editable number input, prefilled with the current value, autofocused, text selected.
-- Two buttons appear: **Save** (primary) and **Cancel** (ghost).
-- `Enter` triggers Save. `Escape` triggers Cancel.
-- Save: validates the number, calls `updateBankBalance.mutate`; on success, exits edit mode and toasts "Bank balance updated"; on error, stays in edit mode and shows an error toast.
-- Cancel: discards the typed value, exits edit mode.
-- While the mutation is in flight, the Save button shows a loading state and inputs are disabled.
+Add a new top-nav tab **Reports** between Recurring and Imports.
 
-### "As of" date
-- Leave as the existing inline date input (already works fine and is a separate field). No change unless you'd like the same edit/save pattern applied there too — let me know.
+`/reports` is a landing page that lists available reports. For now there is exactly one card: **Unmatched Checks**, linking to `/reports/unmatched-checks`.
 
-## Files
+### Unmatched Checks report
 
-- **`src/pages/Dashboard.tsx`** — only file touched.
-  - Add `isEditingBalance` state.
-  - Replace the always-on `<Input>` block (lines ~235–246) with conditional read view + edit view.
-  - Wire Save/Cancel/Enter/Escape handlers using the existing `updateBankBalance` mutation and `bankInput` state.
-  - Remove the now-unused `onBlur` auto-save path.
+Shows every check-numbered transaction that came in through an applied import and still has no real vendor name assigned. Definition:
 
-No backend, schema, RLS, or hook changes. Pure UI/state refactor of one card.
+- `expected_transactions.check_number IS NOT NULL`
+- `source = 'import'` (came from a bank import, not entered manually or via recurring)
+- `name` is blank or still a placeholder like `Check #1234` / `Unnamed`
 
-## Visual
+Table columns: Date · Check # · Amount · Description (raw bank desc) · **Vendor** (editable text input) · **Save** button per row, plus a **Clear** action that marks the row as resolved (sets the name and removes it from the report).
 
-Read state (compact):
+Bulk behavior: each row is independent — type a name, click Save, row disappears from the report.
 
-```
-Bank balance (posted)
-$12,345.67   [✎ Edit]
-As of 05/18/2026
-```
+Empty state: "No unmatched checks. Nice work."
 
-Edit state:
+## Part 3 — Wiring
 
-```
-Bank balance (posted)
-$ [ 12345.67    ]  [Save] [Cancel]
-As of 05/18/2026
-```
+- Add `/reports` and `/reports/unmatched-checks` routes in `src/App.tsx` behind `ProtectedRoute`.
+- Add the "Reports" entry to `src/components/AppNav.tsx` between Recurring and Imports.
+- New files:
+  - `src/pages/Reports.tsx` — index page with the report cards.
+  - `src/pages/UnmatchedChecks.tsx` — the report table with inline vendor editing.
+- Update `src/components/CSVImportModal.tsx`:
+  - Add `vendorName` to the per-row state for unmatched rows.
+  - Render the Vendor input only when check_number is present.
+  - On apply, pass the vendor name as the `name` field for inserted `expected_transactions`.
 
-Buttons use existing shadcn `Button` variants — flat aesthetic, no shadows, consistent with the rest of the dashboard.
+## Technical notes
+
+- No schema changes needed — `expected_transactions` already has `name`, `check_number`, and `source`.
+- Saving a vendor from the Reports page is a simple `UPDATE expected_transactions SET name = $1 WHERE id = $2`, reusing the existing data hooks pattern from History/Dashboard.
+- Detection of "still needs a vendor" uses a client-side filter: `check_number != null && source === 'import' && (!name || /^check\s*#?\d+$/i.test(name) || name === 'Unnamed')`. This avoids any migration.
+
+## Out of scope
+
+- No new vendor master record / `vendors` table linkage in this pass (we're just setting the free-text `name`). Linking to the existing `vendors` table can be a follow-up if you want autocomplete.
+- No edits to already-cleared/matched transactions from the Reports view.

@@ -66,6 +66,8 @@ type NewRow = CSVRow & {
   editedDescription: string;
   type: string;
   bankImportRowId: string;
+  checkNumber: string | null;
+  vendorName: string;
 };
 
 type DuplicateRow = CSVRow & {
@@ -270,12 +272,13 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     // Build matched, partial, unmatched, duplicate state
     const matched: MatchedRow[] = [];
     const partial: PartialMatchRow[] = [];
-    const unmatched: Array<CSVRow & { bankImportRowId: string }> = [];
+    const unmatched: Array<CSVRow & { bankImportRowId: string; checkNumber: string | null }> = [];
 
     for (const result of matchResults) {
       const csvRow = nonDupeParsed[result.bankRowIndex];
       const originalIdx = ndToOrigMap[result.bankRowIndex];
       const bankImportRowId = insertedRowIds[originalIdx] ?? '';
+      const checkNumber = bankRows[originalIdx]?.checkNumber ?? null;
 
       if (result.status === 'matched') {
         const tx = outstanding.find(t => t.id === result.candidateId);
@@ -286,7 +289,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
             daysDiff: result.daysDifference ?? 0, selected: true, bankImportRowId,
             amountDifference: result.amountDifference ?? null,
           });
-        } else { unmatched.push({ ...csvRow, bankImportRowId }); }
+        } else { unmatched.push({ ...csvRow, bankImportRowId, checkNumber }); }
       } else if (result.status === 'partial_match') {
         const tx = outstanding.find(t => t.id === result.candidateId);
         if (tx) {
@@ -297,9 +300,9 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
             recurringTemplateId: tx.recurring_template_id ?? null,
             decision: null, updateTemplate: false,
           });
-        } else { unmatched.push({ ...csvRow, bankImportRowId }); }
+        } else { unmatched.push({ ...csvRow, bankImportRowId, checkNumber }); }
       } else {
-        unmatched.push({ ...csvRow, bankImportRowId });
+        unmatched.push({ ...csvRow, bankImportRowId, checkNumber });
       }
     }
 
@@ -316,7 +319,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
 
     setMatchedRows(matched);
     setPartialMatchRows(partial);
-    setNewRows(unmatched.map(r => ({ ...r, selected: true, editedDescription: r.description, type: 'ACH' })));
+    setNewRows(unmatched.map(r => ({ ...r, selected: true, editedDescription: r.description, type: r.checkNumber ? 'Check' : 'ACH', vendorName: '' })));
     setDuplicateRows(dupes);
     setStep(1);
   }, [transactions, existingFingerprints, createBatch, insertRows]);
@@ -352,9 +355,10 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     }
 
     // Move to unmatched pool
+    const dupeCheck = extractCheckNumber(dupe.description);
     setDuplicateRows(prev => prev.map((d, i) => i === idx ? { ...d, forceIncluded: true } : d));
     setNewRows(prev => [...prev, {
-      ...dupe, selected: true, editedDescription: dupe.description, type: 'ACH',
+      ...dupe, selected: true, editedDescription: dupe.description, type: dupeCheck ? 'Check' : 'ACH', checkNumber: dupeCheck, vendorName: '',
     }]);
     setDuplicateCount(prev => Math.max(0, prev - 1));
   };
@@ -365,10 +369,14 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     if (rejected.length > 0) {
       setNewRows(prev => [
         ...prev,
-        ...rejected.map(r => ({
-          description: r.description, date: r.date, amount: r.amount, direction: r.direction,
-          selected: true, editedDescription: r.description, type: 'ACH', bankImportRowId: r.bankImportRowId,
-        })),
+        ...rejected.map(r => {
+          const ck = extractCheckNumber(r.description);
+          return {
+            description: r.description, date: r.date, amount: r.amount, direction: r.direction,
+            selected: true, editedDescription: r.description, type: ck ? 'Check' : 'ACH',
+            bankImportRowId: r.bankImportRowId, checkNumber: ck, vendorName: '',
+          };
+        }),
       ]);
     }
     setStep(3);
@@ -390,10 +398,12 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     ];
 
     const newTransactions = selectedNew.map(r => ({
-      name: r.editedDescription || r.description, expected_amount: r.amount, direction: r.direction, type: r.type,
+      name: (r.vendorName?.trim() || r.editedDescription || r.description),
+      expected_amount: r.amount, direction: r.direction, type: r.type,
       scheduled_date: r.date, status: 'cleared_manual', cleared_at: new Date(r.date + 'T00:00:00').toISOString(),
       source: 'import_unmatched', source_batch_id: batchId,
-    }));
+      check_number: r.checkNumber,
+    } as any));
 
     // Match records: exact matches + accepted partials
     const matchRecords = [
@@ -723,11 +733,22 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
             )}
             <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
               {newRows.map((row, idx) => (
-                <div key={idx} className={`flex items-center gap-2 p-2 rounded border text-sm ${!row.selected ? 'opacity-35' : ''}`}>
+                <div key={idx} className={`flex flex-wrap items-center gap-2 p-2 rounded border text-sm ${!row.selected ? 'opacity-35' : ''}`}>
                   <Checkbox checked={row.selected} onCheckedChange={() => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, selected: !r.selected } : r))} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium break-words">{row.description}</p>
+                    {row.checkNumber && (
+                      <p className="text-xs text-muted-foreground">Check #{row.checkNumber}</p>
+                    )}
                   </div>
+                  {row.checkNumber && (
+                    <Input
+                      value={row.vendorName}
+                      placeholder="Vendor (optional)"
+                      onChange={e => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, vendorName: e.target.value } : r))}
+                      className="h-8 w-44"
+                    />
+                  )}
                   <Select value={row.type} onValueChange={v => setNewRows(prev => prev.map((r, i) => i === idx ? { ...r, type: v } : r))}>
                     <SelectTrigger className="w-20 h-8"><SelectValue /></SelectTrigger>
                     <SelectContent>
