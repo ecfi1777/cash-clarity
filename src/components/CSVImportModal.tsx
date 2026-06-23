@@ -272,12 +272,13 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     // Build matched, partial, unmatched, duplicate state
     const matched: MatchedRow[] = [];
     const partial: PartialMatchRow[] = [];
-    const unmatched: Array<CSVRow & { bankImportRowId: string }> = [];
+    const unmatched: Array<CSVRow & { bankImportRowId: string; checkNumber: string | null }> = [];
 
     for (const result of matchResults) {
       const csvRow = nonDupeParsed[result.bankRowIndex];
       const originalIdx = ndToOrigMap[result.bankRowIndex];
       const bankImportRowId = insertedRowIds[originalIdx] ?? '';
+      const checkNumber = bankRows[originalIdx]?.checkNumber ?? null;
 
       if (result.status === 'matched') {
         const tx = outstanding.find(t => t.id === result.candidateId);
@@ -288,7 +289,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
             daysDiff: result.daysDifference ?? 0, selected: true, bankImportRowId,
             amountDifference: result.amountDifference ?? null,
           });
-        } else { unmatched.push({ ...csvRow, bankImportRowId }); }
+        } else { unmatched.push({ ...csvRow, bankImportRowId, checkNumber }); }
       } else if (result.status === 'partial_match') {
         const tx = outstanding.find(t => t.id === result.candidateId);
         if (tx) {
@@ -299,9 +300,9 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
             recurringTemplateId: tx.recurring_template_id ?? null,
             decision: null, updateTemplate: false,
           });
-        } else { unmatched.push({ ...csvRow, bankImportRowId }); }
+        } else { unmatched.push({ ...csvRow, bankImportRowId, checkNumber }); }
       } else {
-        unmatched.push({ ...csvRow, bankImportRowId });
+        unmatched.push({ ...csvRow, bankImportRowId, checkNumber });
       }
     }
 
@@ -318,7 +319,7 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
 
     setMatchedRows(matched);
     setPartialMatchRows(partial);
-    setNewRows(unmatched.map(r => ({ ...r, selected: true, editedDescription: r.description, type: 'ACH' })));
+    setNewRows(unmatched.map(r => ({ ...r, selected: true, editedDescription: r.description, type: r.checkNumber ? 'Check' : 'ACH', vendorName: '' })));
     setDuplicateRows(dupes);
     setStep(1);
   }, [transactions, existingFingerprints, createBatch, insertRows]);
