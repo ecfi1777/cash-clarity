@@ -398,10 +398,12 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     ];
 
     const newTransactions = selectedNew.map(r => ({
-      name: r.editedDescription || r.description, expected_amount: r.amount, direction: r.direction, type: r.type,
+      name: (r.vendorName?.trim() || r.editedDescription || r.description),
+      expected_amount: r.amount, direction: r.direction, type: r.type,
       scheduled_date: r.date, status: 'cleared_manual', cleared_at: new Date(r.date + 'T00:00:00').toISOString(),
       source: 'import_unmatched', source_batch_id: batchId,
-    }));
+      check_number: r.checkNumber,
+    } as any));
 
     // Match records: exact matches + accepted partials
     const matchRecords = [
