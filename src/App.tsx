@@ -40,6 +40,8 @@ const AppRoutes = () => {
         <Route path="/recurring" element={<ProtectedRoute><Recurring /></ProtectedRoute>} />
         <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
         <Route path="/imports/:batchId" element={<ProtectedRoute><ImportDetail /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        <Route path="/reports/unmatched-checks" element={<ProtectedRoute><UnmatchedChecks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
