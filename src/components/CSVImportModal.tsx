@@ -355,9 +355,10 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     }
 
     // Move to unmatched pool
+    const dupeCheck = extractCheckNumber(dupe.description);
     setDuplicateRows(prev => prev.map((d, i) => i === idx ? { ...d, forceIncluded: true } : d));
     setNewRows(prev => [...prev, {
-      ...dupe, selected: true, editedDescription: dupe.description, type: 'ACH',
+      ...dupe, selected: true, editedDescription: dupe.description, type: dupeCheck ? 'Check' : 'ACH', checkNumber: dupeCheck, vendorName: '',
     }]);
     setDuplicateCount(prev => Math.max(0, prev - 1));
   };
@@ -368,10 +369,14 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
     if (rejected.length > 0) {
       setNewRows(prev => [
         ...prev,
-        ...rejected.map(r => ({
-          description: r.description, date: r.date, amount: r.amount, direction: r.direction,
-          selected: true, editedDescription: r.description, type: 'ACH', bankImportRowId: r.bankImportRowId,
-        })),
+        ...rejected.map(r => {
+          const ck = extractCheckNumber(r.description);
+          return {
+            description: r.description, date: r.date, amount: r.amount, direction: r.direction,
+            selected: true, editedDescription: r.description, type: ck ? 'Check' : 'ACH',
+            bankImportRowId: r.bankImportRowId, checkNumber: ck, vendorName: '',
+          };
+        }),
       ]);
     }
     setStep(3);
