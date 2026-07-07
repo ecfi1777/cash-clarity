@@ -660,8 +660,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
                 <div key={idx} className="p-3 rounded border text-sm space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{row.transactionName}</div>
-                      <div className="text-xs text-muted-foreground truncate">← {row.description} · {row.date}</div>
+                      <div className="font-medium truncate">{row.transactionName} · <span className="text-xs text-muted-foreground font-normal">written {row.transactionDate}</span></div>
+                      <div className="text-xs text-muted-foreground truncate">← {row.description} · cleared {row.date}</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
