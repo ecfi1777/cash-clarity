@@ -101,7 +101,7 @@ export function GenerateRecurringModal({ open, onOpenChange, templates, onApply 
   const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
 
   // Sync when initialItems changes (e.g. dismissed list refetch)
-  useMemo(() => { setItems(initialItems); }, [initialItems]);
+  useEffect(() => { setItems(initialItems); }, [initialItems]);
 
   const toggleItem = (idx: number) => {
     setItems(prev => prev.map((item, i) => i === idx ? { ...item, approved: !item.approved } : item));
