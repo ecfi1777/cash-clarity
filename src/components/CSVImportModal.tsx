@@ -613,8 +613,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
               <DialogDescription>{matchedRows.length} bank items matched exactly to your outstanding transactions.</DialogDescription>
             </DialogHeader>
             <div className="flex gap-3 text-xs text-muted-foreground mb-2">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-deposit inline-block" /> exact date</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning inline-block" /> close date</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-deposit inline-block" /> same day</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning inline-block" /> cleared later</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground inline-block" /> amount only</span>
             </div>
             {matchedRows.length > 0 && (
