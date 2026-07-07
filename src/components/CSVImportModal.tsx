@@ -486,8 +486,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
   const acceptedPartialCount = partialMatchRows.filter(r => r.decision === 'accept_bank' || r.decision === 'accept_expected').length;
 
   const confidenceBadge = (c: MatchedRow['confidence'], days: number) => {
-    if (c === 'exact') return <Badge variant="deposit">exact date</Badge>;
-    if (c === 'close') return <Badge variant="warning">{days} days off</Badge>;
+    if (c === 'exact') return <Badge variant="deposit">same day</Badge>;
+    if (c === 'close') return <Badge variant="warning">+{days}d to clear</Badge>;
     return <Badge variant="muted">amt only</Badge>;
   };
 
@@ -613,8 +613,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
               <DialogDescription>{matchedRows.length} bank items matched exactly to your outstanding transactions.</DialogDescription>
             </DialogHeader>
             <div className="flex gap-3 text-xs text-muted-foreground mb-2">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-deposit inline-block" /> exact date</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning inline-block" /> close date</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-deposit inline-block" /> same day</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning inline-block" /> cleared later</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground inline-block" /> amount only</span>
             </div>
             {matchedRows.length > 0 && (
@@ -628,8 +628,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
                 <div key={idx} className={`flex items-center gap-2 p-2 rounded border text-sm ${!row.selected ? 'opacity-35' : ''}`}>
                   <Checkbox checked={row.selected} onCheckedChange={() => setMatchedRows(prev => prev.map((r, i) => i === idx ? { ...r, selected: !r.selected } : r))} />
                   <div className="flex-1 min-w-0">
-                    <div className="truncate">{row.transactionName} · {row.transactionDate}</div>
-                    <div className="text-xs text-muted-foreground truncate">← {row.description} · {row.date}</div>
+                    <div className="truncate">{row.transactionName} · <span className="text-xs text-muted-foreground">written {row.transactionDate}</span></div>
+                    <div className="text-xs text-muted-foreground truncate">← {row.description} · cleared {row.date}</div>
                   </div>
                   {confidenceBadge(row.confidence, row.daysDiff)}
                   <span className={`min-w-amount text-right ${row.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
@@ -660,8 +660,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
                 <div key={idx} className="p-3 rounded border text-sm space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{row.transactionName}</div>
-                      <div className="text-xs text-muted-foreground truncate">← {row.description} · {row.date}</div>
+                      <div className="font-medium truncate">{row.transactionName} · <span className="text-xs text-muted-foreground font-normal">written {row.transactionDate}</span></div>
+                      <div className="text-xs text-muted-foreground truncate">← {row.description} · cleared {row.date}</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
