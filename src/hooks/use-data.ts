@@ -290,3 +290,37 @@ export function useBulkUpdateExpectedTransactions() {
 
 // Legacy alias
 export const useBulkUpdateTransactions = useBulkUpdateExpectedTransactions;
+
+// ── Dismissed recurring occurrences ──────────────────────────────────────
+
+export type DismissedOccurrence = {
+  id: string;
+  template_id: string;
+  occurrence_date: string;
+};
+
+export function useDismissedOccurrences() {
+  return useQuery({
+    queryKey: ['dismissed_recurring_occurrences'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dismissed_recurring_occurrences' as any)
+        .select('id, template_id, occurrence_date');
+      if (error) throw error;
+      return (data ?? []) as unknown as DismissedOccurrence[];
+    },
+  });
+}
+
+export function useDismissOccurrence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { template_id: string; occurrence_date: string }) => {
+      const { error } = await supabase
+        .from('dismissed_recurring_occurrences' as any)
+        .insert(input as any);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['dismissed_recurring_occurrences'] }),
+  });
+}

@@ -239,6 +239,38 @@ export type Database = {
           },
         ]
       }
+      dismissed_recurring_occurrences: {
+        Row: {
+          created_at: string
+          id: string
+          occurrence_date: string
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          occurrence_date: string
+          template_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          occurrence_date?: string
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dismissed_recurring_occurrences_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expected_transactions: {
         Row: {
           check_number: string | null
