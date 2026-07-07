@@ -628,8 +628,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
                 <div key={idx} className={`flex items-center gap-2 p-2 rounded border text-sm ${!row.selected ? 'opacity-35' : ''}`}>
                   <Checkbox checked={row.selected} onCheckedChange={() => setMatchedRows(prev => prev.map((r, i) => i === idx ? { ...r, selected: !r.selected } : r))} />
                   <div className="flex-1 min-w-0">
-                    <div className="truncate">{row.transactionName} · {row.transactionDate}</div>
-                    <div className="text-xs text-muted-foreground truncate">← {row.description} · {row.date}</div>
+                    <div className="truncate">{row.transactionName} · <span className="text-xs text-muted-foreground">written {row.transactionDate}</span></div>
+                    <div className="text-xs text-muted-foreground truncate">← {row.description} · cleared {row.date}</div>
                   </div>
                   {confidenceBadge(row.confidence, row.daysDiff)}
                   <span className={`min-w-amount text-right ${row.direction === 'pmt' ? 'text-payment' : 'text-deposit'}`}>
