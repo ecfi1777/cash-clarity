@@ -486,8 +486,8 @@ export function CSVImportModal({ open, onOpenChange, transactions }: Props) {
   const acceptedPartialCount = partialMatchRows.filter(r => r.decision === 'accept_bank' || r.decision === 'accept_expected').length;
 
   const confidenceBadge = (c: MatchedRow['confidence'], days: number) => {
-    if (c === 'exact') return <Badge variant="deposit">exact date</Badge>;
-    if (c === 'close') return <Badge variant="warning">{days} days off</Badge>;
+    if (c === 'exact') return <Badge variant="deposit">same day</Badge>;
+    if (c === 'close') return <Badge variant="warning">+{days}d to clear</Badge>;
     return <Badge variant="muted">amt only</Badge>;
   };
 
